@@ -33,7 +33,7 @@ That command is intentionally guarded. It may build, deploy, verify hashes, and 
 From a clean public checkout:
 
 ```sh
-tools/vita_make_source_release.sh v0.1.0-source-tooling
+tools/vita_make_source_release.sh v0.1.0
 ```
 
 The script creates:
@@ -55,9 +55,9 @@ No output is expected.
 ## GitHub release command
 
 ```sh
-git tag -a v0.1.0-source-tooling -m "Vita Kart 64 source/tooling release"
+git tag -a v0.1.0 -m "Vita Kart 64 source/tooling release"
 git push origin main --tags
-gh release create v0.1.0-source-tooling dist/* \
+gh release create v0.1.0 dist/* \
   --repo TheGh0stShip/VitaKart64 \
   --title "Vita Kart 64 v0.1.0 source/tooling" \
   --notes-file RELEASE_NOTES.md
