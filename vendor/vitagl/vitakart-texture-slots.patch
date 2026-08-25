@@ -1,0 +1,25 @@
+diff --git a/source/shared.h b/source/shared.h
+index 2902f0f..7609abc 100644
+--- a/source/shared.h
++++ b/source/shared.h
+@@ -24,7 +24,7 @@
+ #include <vitasdk.h>
+ #include "vitaGL.h"
+ // Internal constants
+-#define TEXTURES_NUM 16384 // Available textures
++#define TEXTURES_NUM 32768 // Available textures for Vita Kart 64's complete prewarmed set
+ #define TEXTURE_IMAGE_UNITS_NUM 16 // Available texture image units
+ #ifdef HAVE_HIGH_FFP_TEXUNITS
+ #define TEXTURE_COORDS_NUM 3 // Available texture coords sets for multitexturing with ffp
+diff --git a/source/vgl.c b/source/vgl.c
+index 284ef5e..d9f8dc1 100644
+--- a/source/vgl.c
++++ b/source/vgl.c
+@@ -839,5 +839,6 @@ void vglSetShaderCachePath(const char *path) {
+ }
+ 
+ void vglSetShaderAssociationPath(const char *path) {
+-	shark_set_shader_association_path(path);
++	// This optional vitaShaRK API is unavailable in the VitaSDK release used by Vita Kart 64.
++	(void)path;
+ }

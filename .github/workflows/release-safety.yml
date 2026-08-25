@@ -1,0 +1,26 @@
+name: release-safety
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  no-private-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject ROMs, generated packages, and private paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad_files="$(find . -type f \( -iname '*.z64' -o -iname '*.n64' -o -iname '*.v64' -o -iname '*.o2r' -o -iname '*.otr' -o -iname '*.vpk' -o -iname '*.elf' -o -iname '*.velf' -o -iname '*.self' -o -iname '*.psp2dmp' \) -print)"
+          if [[ -n "$bad_files" ]]; then
+            echo "$bad_files"
+            exit 1
+          fi
+          private_home="/home/s""teve"
+          private_win='C:\Users\s'"teve"
+          token_pattern='gho_[A-Za-z0-9_]+'
+          if grep -RInE "${private_win}|${private_home}|${token_pattern}" . --exclude-dir=.git; then
+            exit 1
+          fi

@@ -1,0 +1,97 @@
+# Build products and local tool output
+/build/
+/build*/
+/cmake-build-*/
+/f/
+/debug/
+/out/
+/_packages/
+.cache/
+.venv/
+compile_commands.json
+
+# Vita binaries/packages generated locally
+*.elf
+*.velf
+*.self
+*.vpk
+eboot.bin
+param.sfo
+*.map
+*.su
+*.dump
+
+# User-owned or ROM-derived game material: never commit or release these.
+*.z64
+*.n64
+*.v64
+*.o2r
+*.otr
+*.mio0
+*.aiff
+*.m64
+vita-kart-64-private-data.zip
+/assets/vita/texture-pairs.manifest
+
+# Runtime/test evidence generated from hardware runs
+/hardware-runs/
+/hardware-test/
+/release-private/
+/runtime-cache/
+/livearea-indexed/
+*.psp2dmp
+*.log
+
+# Vendor archives rebuilt locally
+/vendor/vitagl/libvitagl.a
+/vendor/vitagl/BUILD.txt
+
+# Object/library output
+*.o
+*.ok
+*.oc
+*.obj
+*.a
+*.lib
+*.la
+*.lo
+*.dll
+*.so
+*.so.*
+*.dylib
+*.exe
+*.out
+*.app
+*.hex
+
+# Editor/OS files
+.DS_Store
+*.swp
+.vscode/*
+.idea/
+.vs/
+
+# Decomp/generated extracted assets
+/bin/
+/modding/
+/nonmatchings/
+/expected/
+/contexts/
+/context_gen_header.h
+/ctx.c
+/properties.h
+/assets/**/.export
+/assets/**/*.bin
+/assets/**/*.raw
+/assets/**/*.mio0
+/assets/**/*.inc.c
+/assets/code/
+/textures/**/*.png
+/textures/**/*.bin
+/music/**/*.m64
+/sound/**/*.m64
+/sound/**/*.aiff
+
+# Keep Vita Kart source-side generated/generic assets and manifests.
+!/assets/vita/
+!/assets/vita/**

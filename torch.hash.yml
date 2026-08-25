@@ -1,0 +1,889 @@
+yamls/us/textures/ceremony_data.yml:
+  hash: f76778932ee06270788c422dccb6c79a85055a88
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/ceremony_data.yml:
+  hash: 2d07319dd44502e574bc74e6e4474e57d93b77c4
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/common_data.yml:
+  hash: c79bfbaa3d8728534fbc5613bcb7c7866d871f02
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/common_data.yml:
+  hash: 81c04725ef9f3238d807939a1c900fe9328752b0
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/data_800E8700.yml:
+  hash: e61364f79a61479232752ff39665759d4619139d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/startup_logo.yml:
+  hash: 586e575b2175595b9d2c2c5200835e7a78288255
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/startup_logo.yml:
+  hash: f0668b473e88932b5783100b04bedecc8741c2c0
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/data_segment2.yml:
+  hash: 7f2a399539f2702aa1323b110a6d2284519a89cf
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/banshee_boardwalk/banshee_boardwalk_data.yml:
+  hash: a11e50ea8730be63a0648b68fe31a3e4076d5e23
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/banshee_boardwalk/banshee_boardwalk_data.yml:
+  hash: fa273cf1faaac87d816bd2b8efa03aa9b6631bd0
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/banshee_boardwalk/banshee_boardwalk_displaylists.yml:
+  hash: eefe561fc7f1b28993e870f2348f2e5d511c41db
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/banshee_boardwalk/banshee_boardwalk_vertices.yml:
+  hash: 3412d442f2fcc4fdabf14f147da925d7305c1f9e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/big_donut/big_donut_data.yml:
+  hash: ddf9e8642f8dbfbbdb7b3b8e968234692bc73458
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/big_donut/big_donut_displaylists.yml:
+  hash: 447ff525a0a31c48f85004772ae16a788795bf93
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/big_donut/big_donut_vertices.yml:
+  hash: 52c89b39459cbcabd2aa4d356776328a22932457
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/block_fort/block_fort_data.yml:
+  hash: 79c80a2d28cee9636f5e22bf31129cf41792e295
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/block_fort/block_fort_displaylists.yml:
+  hash: 05b14154cac8372efedce567dad977dd1dae97d8
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/block_fort/block_fort_vertices.yml:
+  hash: 1dd4122ea08da49e5e9a428604a12ebb9aa24847
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/bowsers_castle/bowsers_castle_data.yml:
+  hash: 124629ed14a2f38314481f8c92c78a60fc92b8d8
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/bowsers_castle/bowsers_castle_data.yml:
+  hash: 6544b0a89c93840fce0c897205b75f1124d1700a
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/bowsers_castle/bowsers_castle_displaylists.yml:
+  hash: ff235dfe92c78cf47c429ff252da82574a42e209
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/bowsers_castle/bowsers_castle_vertices.yml:
+  hash: 25b01483b33957dd55750a0ae8d90f52ed62599d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/choco_mountain/choco_mountain_data.yml:
+  hash: ed5d4be12d7bab4b66ec97e22ad34890d42330b0
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/choco_mountain/choco_mountain_data.yml:
+  hash: ab9887801df82b2752d87295c2422867713a5a68
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/choco_mountain/choco_mountain_displaylists.yml:
+  hash: 4ed0ec68c7d962ac2e17626ed7c6bf653d8927d5
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/choco_mountain/choco_mountain_vertices.yml:
+  hash: 5229d48493efc70f17d7ee551b4bc78422ddcfd6
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/dks_jungle_parkway/dks_jungle_parkway_data.yml:
+  hash: f8717d8d85d380ccd8d7d384370163f59e35c89b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/dks_jungle_parkway/dks_jungle_parkway_data.yml:
+  hash: 33d7e5b721c4b1702f845756c97b3c6efd2f7c36
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/dks_jungle_parkway/dks_jungle_parkway_displaylists.yml:
+  hash: 3fabd3521a8e67682044fff25f0b69850fd8000e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/dks_jungle_parkway/dks_jungle_parkway_vertices.yml:
+  hash: 26f21de0d850bb8bf153dcf6366f67ac6513da3c
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/double_deck/double_deck_data.yml:
+  hash: 6142aa8ba49dbd39b1e6250e845995a39587920e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/double_deck/double_deck_displaylists.yml:
+  hash: e9801487945694d0731ddadeaae7da447629ae71
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/double_deck/double_deck_vertices.yml:
+  hash: 23fbdf4a1db976633da527b4909bd92537db0221
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/frappe_snowland/frappe_snowland_data.yml:
+  hash: 417e37dbf960596573bfa23b5f5eace5d52de18e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/frappe_snowland/frappe_snowland_data.yml:
+  hash: d6d78d16b39fc418772c1e18f4f4705972785f68
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/frappe_snowland/frappe_snowland_displaylists.yml:
+  hash: bb09ccd81203e16952f1a4e5169d7b0ccecf5c1d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/frappe_snowland/frappe_snowland_vertices.yml:
+  hash: b867f92d1b401c0ecbc5138fdcc9aa46116e4764
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/kalimari_desert/kalimari_desert_data.yml:
+  hash: ea2b5cc42e73d6ab590ebfb962254b2c874f4113
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/kalimari_desert/kalimari_desert_data.yml:
+  hash: 4c704513ae4f34e0808eccabcae549a56b0f2de8
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/kalimari_desert/kalimari_desert_displaylists.yml:
+  hash: 60e35048ebce4f7193c446899f17611dc2a55a08
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/kalimari_desert/kalimari_desert_vertices.yml:
+  hash: d41ad0f42ed39e2c5fe87730c958865ff9205456
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/koopa_troopa_beach/koopa_troopa_beach_data.yml:
+  hash: b3b6a41054021b217036b8d86d613f88c847b698
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/koopa_troopa_beach/koopa_troopa_beach_data.yml:
+  hash: a68814f9d6d18c67a01dfc79d93ae6d779189035
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/koopa_troopa_beach/koopa_troopa_beach_displaylists.yml:
+  hash: d51e00ee6962e097896c798185a7290bc62b6179
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/koopa_troopa_beach/koopa_troopa_beach_vertices.yml:
+  hash: d420910f4897d5c96d3eb5b7524fb686a187ae48
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/luigi_raceway/luigi_raceway_data.yml:
+  hash: 329039bb1c60d50abaa3b7f42fc4211ba318b4eb
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/luigi_raceway/luigi_raceway_data.yml:
+  hash: 872d7a0224cd544f408f028e178415a384959c8b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/luigi_raceway/luigi_raceway_displaylists.yml:
+  hash: 7591e084af9e79a7575062ecf49d37371a3a95bc
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/luigi_raceway/luigi_raceway_vertices.yml:
+  hash: 5627737103d3c4a66d921aab71e384b64c6e630b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/mario_raceway/mario_raceway_data.yml:
+  hash: bf1a19a1dc80bb91f52cd2806009a0b63ba0ba7b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/mario_raceway/mario_raceway_data.yml:
+  hash: 5098c1631b4b9952d9cfb8ee390ee11ad16f4931
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/mario_raceway/mario_raceway_displaylists.yml:
+  hash: 9e94c68026c8dfa65845a34c5d83642cd60ce63e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/mario_raceway/mario_raceway_vertices.yml:
+  hash: 17fecad3094123bfcb20d5a0591c64085ecc3a3e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/moo_moo_farm/moo_moo_farm_data.yml:
+  hash: 072f49854b977da0f73edb173727dd7982d6d27d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/moo_moo_farm/moo_moo_farm_data.yml:
+  hash: 86dcb37be99d20a2c9413fa21b77fca3fd9683bf
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/moo_moo_farm/moo_moo_farm_displaylists.yml:
+  hash: 4e4a9c35a705ee8a6ff44cc146d318a1e661ef8d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/moo_moo_farm/moo_moo_farm_vertices.yml:
+  hash: 2835d6c2d1901573227300638103cc525e7e4fc4
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/rainbow_road/rainbow_road_data.yml:
+  hash: 3c10a67de3b0d01c5646a8fa3818c08e8286a6e1
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/rainbow_road/rainbow_road_data.yml:
+  hash: 3694b82c9b5befcd4b8860e24cd81712288c1271
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/rainbow_road/rainbow_road_displaylists.yml:
+  hash: 1c7f367d96e342e3eec6b17dfebec9ff82161626
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/rainbow_road/rainbow_road_vertices.yml:
+  hash: 9f695fecbb35cf987ca6fe243da72489d8269a12
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/royal_raceway/royal_raceway_data.yml:
+  hash: 2179fd76e2905c4d7d43b608b79135e4653251a4
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/royal_raceway/royal_raceway_data.yml:
+  hash: 9fea1886014f45f900e9e6ffee792caf83247282
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/royal_raceway/royal_raceway_displaylists.yml:
+  hash: f17440f790f35e2eb2a6ccb13c29dbae9dd82e63
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/royal_raceway/royal_raceway_vertices.yml:
+  hash: e568d35e29584fe6a3a0b8469aaa93ec6e80cbf9
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/sherbet_land/sherbet_land_data.yml:
+  hash: 1b80310f977b8a462e10159ad3acb9933568c8f3
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/sherbet_land/sherbet_land_data.yml:
+  hash: cc4392fe965ac8badf4f8e9a9063016fea249010
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/sherbet_land/sherbet_land_displaylists.yml:
+  hash: 9254fe8cd4642a637fef72887af9b1d1d4fd09fb
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/sherbet_land/sherbet_land_vertices.yml:
+  hash: 3834e266c48441483c7feef6012881d096dbab84
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/skyscraper/skyscraper_data.yml:
+  hash: 784a8b3e6dc05f4ad1068b8dcab413a1f4ce9465
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/skyscraper/skyscraper_displaylists.yml:
+  hash: 78b4e597eb77209053c63fc218c2ebe663c9b0da
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/skyscraper/skyscraper_vertices.yml:
+  hash: 0e9260c323861b646f864489835d1797ee483491
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/toads_turnpike/toads_turnpike_data.yml:
+  hash: f66410785b80c2331e5809342597202d4b7f7578
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/toads_turnpike/toads_turnpike_data.yml:
+  hash: f2f93f71f2a3cc5482c31374aab29ac05bb4e486
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/toads_turnpike/toads_turnpike_displaylists.yml:
+  hash: 40cd2460c018930024920183f1ae0e1ba4066f45
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/toads_turnpike/toads_turnpike_offsets.yml:
+  hash: 8fd89ac439ea8a37ac0fae8eba5f8cbc914f8046
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/toads_turnpike/toads_turnpike_vertices.yml:
+  hash: e83af7ec6b950451818e6cf04fb798ed9bffa40d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/wario_stadium/wario_stadium_data.yml:
+  hash: 9f9f66dcf24167dc9fb0f1fd6123579e282cf1f5
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/wario_stadium/wario_stadium_data.yml:
+  hash: 80be92dfdbfc94771525a4ee9a45ef7fc25002f1
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/wario_stadium/wario_stadium_displaylists.yml:
+  hash: 7b20216d36906d17cf26f09c6a375b16f5e15387
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/wario_stadium/wario_stadium_vertices.yml:
+  hash: 9ebc1ee31cdc89c4be488ba49fd748fa7440610f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/tracks/yoshi_valley/yoshi_valley_data.yml:
+  hash: 39b90d2928bac3e988c7db39c7d1e8eb6cde3cf4
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/yoshi_valley/yoshi_valley_data.yml:
+  hash: 562213cfde5ee73ca09abad8d39934d81861b765
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/yoshi_valley/yoshi_valley_displaylists.yml:
+  hash: a5b87884fc49ac6d3e033c33a6745c458ee1e804
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/models/tracks/yoshi_valley/yoshi_valley_vertices.yml:
+  hash: f5fa1c5a3f7af4bef81674b86ea5fe86d7a3873c
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/ceremony_data.yml:
+  hash: beca801e7ee6f6e62d3b8b35848d26ca45488da7
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/common_data.yml:
+  hash: 5db6af13b57c4f452aaf48c410ca88d3b80ecb74
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/startup_logo.yml:
+  hash: 40b82603d0aaa58b0d25ac550e7f6c11b6083513
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/banshee_boardwalk/banshee_boardwalk_data.yml:
+  hash: 0afd880684757934516794b1d09b0b4427e86c6c
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/big_donut/big_donut_data.yml:
+  hash: b8ab46a6f4be26e5d6e841d32e2bcdb2626a5663
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/block_fort/block_fort_data.yml:
+  hash: 4c81e0cc97c1735e2909d25570ccd0aa0a262c25
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/bowsers_castle/bowsers_castle_data.yml:
+  hash: f2a006829b28d130c041cfe467488cace6fda126
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/choco_mountain/choco_mountain_data.yml:
+  hash: 2a84f495836b0d97f119374292ae3e8b6cc7ed72
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/dks_jungle_parkway/dks_jungle_parkway_data.yml:
+  hash: 5997df654dcac6e41326710fd36c37a5c45db295
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/double_deck/double_deck_data.yml:
+  hash: 8fbf511adeea6005b38e22be921015ebfb420a4b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/frappe_snowland/frappe_snowland_data.yml:
+  hash: c13ba79a8aa804c1c9b24da6bb64d0ccc3b0ee24
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/kalimari_desert/kalimari_desert_data.yml:
+  hash: 0eaade97f33678f6d6a804b356c184a581d7c57f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/koopa_troopa_beach/koopa_troopa_beach_data.yml:
+  hash: e2f9cd3f4e94cc4229e491c06fa59faf0714b257
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/luigi_raceway/luigi_raceway_data.yml:
+  hash: 092865d35b1243c1a33a0b9b507dc9f86210a7bc
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/mario_raceway/mario_raceway_data.yml:
+  hash: ddc479f7c39039877290e43e7f1caa8260c66443
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/moo_moo_farm/moo_moo_farm_data.yml:
+  hash: 00e9a88142ac44ad355a8145cdcf49922cfb2f58
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/rainbow_road/rainbow_road_data.yml:
+  hash: f03eb5504bed2b8267ccac0f049c1572db35568b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/royal_raceway/royal_raceway_data.yml:
+  hash: c5d3891573264a710774d9d267066350ec3f70e2
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/sherbet_land/sherbet_land_data.yml:
+  hash: a43f92985a93aa9aab344a80fa327ae6a47eb48f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/skyscraper/skyscraper_data.yml:
+  hash: c4e8ebdca5f68f68aba30b77612ddde4f0fb7a4b
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/toads_turnpike/toads_turnpike_data.yml:
+  hash: 530cd853a42ccdcffaa661ccc300bce439e137b7
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/wario_stadium/wario_stadium_data.yml:
+  hash: b85e4322ee946e5c1a634f5d3e3ce554fb73df7e
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/other/tracks/yoshi_valley/yoshi_valley_data.yml:
+  hash: ce1b2125fad8e2351f2a63cc18cb8a79b07862ca
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/sound/root.yml:
+  hash: c0601336270a526e1853d474ce6e543792d99307
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/sound/samples.yml:
+  hash: ddd675d5aec20e70ad07e84df9855a77e5abf002
+  extracted:
+    Header: false
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/sound/banks.yml:
+  hash: 7f94d4209e80d2c436969375fc477435c59e0d6b
+  extracted:
+    Header: false
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/sound/sequences.yml:
+  hash: c82a0a2323c3390f597dd06388aab868321681e2
+  extracted:
+    Header: false
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/boo_frames.yml:
+  hash: 7a8ae655951576ff6dd53a0072bc99e6c6f09cd3
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/data_800E45C0.yml:
+  hash: a42e39b46f94b86a858b344c47b3ebcff78b6070
+  extracted:
+    Header: false
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/bowser_kart.yml:
+  hash: 857299ed0d95fd9ce503cb2089eaf141ca5db67f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/donkeykong_kart.yml:
+  hash: 433db893bfe3e2266101c969421a8fc390f64775
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/luigi_kart.yml:
+  hash: 9efd734966b2a1a4c07eb069ec6b2486a4df0ef7
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/mario_kart.yml:
+  hash: f11add5124cc4aeeace982bd576d3ae66163b99f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/peach_kart.yml:
+  hash: 52362f5614907336cfc3f9c113bf30d39e1c8109
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/toad_kart.yml:
+  hash: 0ad498231fcbdce87afc025a66cf07427c2d1350
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/wario_kart.yml:
+  hash: 99bca01ad22b00079ac574fe54cfb6c7b8ab414f
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/karts/yoshi_kart.yml:
+  hash: cef651fdb9064c1629f2606184b81a9e6cac899a
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/other_textures.yml:
+  hash: 9d8b597853899fe8003f8978c08fb5ea720e2d04
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/player_selection.yml:
+  hash: 00d2a33bdd5b67ce3bb4b93496eb94fd3568f142
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/some_data.yml:
+  hash: 072a0ecbe10933ac88e6c8a12082cdf5dcbde0f8
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/texture_data_2.yml:
+  hash: 9c5c8b8d669a8b912322f538835c9014f11cb66d
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false
+yamls/us/textures/texture_tkmk00.yml:
+  hash: 9294e2e713c13e4286a4460f9cdfe967cc5e8cbc
+  extracted:
+    Header: true
+    Code: false
+    Binary: false
+    Modding: false

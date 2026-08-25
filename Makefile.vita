@@ -1,0 +1,276 @@
+TARGET := Vita Kart 64
+
+TITLE := VITAKRT64
+CONTENT_ID := VD0001-$(TITLE)_00-VITAKART64000001
+PYTHON ?= .venv/bin/python
+CCACHE ?= $(shell command -v ccache 2>/dev/null)
+VITA_GL_LIBDIR := $(CURDIR)/vendor/vitagl
+VITA_GL_ARCHIVE := $(VITA_GL_LIBDIR)/libvitagl.a
+export LIBRARY_PATH := $(VITA_GL_LIBDIR):$(LIBRARY_PATH)
+
+vita-kart-64.elf: $(VITA_GL_ARCHIVE)
+
+GFXD_DIR := Torch/lib/libgfxd
+GFXD_CFILES := $(addprefix $(GFXD_DIR)/,gfxd.c uc_f3d.c uc_f3db.c uc_f3dex.c uc_f3dexb.c uc_f3dex2.c)
+GFXD_OBJS := $(GFXD_CFILES:.c=.o)
+
+TORCH_INCLUDES := Torch/src Torch/src/utils Torch/lib Torch Torch/src/factories \
+	Torch/lib/n64graphics Torch/lib/binarytools $(GFXD_DIR)
+
+TORCH_SOURCES := Torch/src Torch/src/factories Torch/src/factories/mk64 Torch/lib/binarytools \
+	Torch/src/n64 Torch/src/preprocess Torch/src/types Torch/src/utils Torch/lib/libmio0 \
+	Torch/src/archive Torch/lib/binarytools Torch/lib/libyay0 Torch/lib/n64graphics \
+	Torch/src/factories/naudio/v0 Torch/src/factories/naudio/v1
+
+LUS_INCLUDES := tools tools/stb libultraship/include libultraship/src libultraship/src/ship/utils/binarytools libultraship/src/resource/type \
+	libultraship/src/resource libultraship/src/window libultraship/src/window/gui libultraship/src/audio libultraship/src/graphic \
+	libultraship/src libultraship/imgui libultraship/imgui/backends libultraship/src/public/bridge libultraship/include/libultraship \
+	libultraship/src/resource/factory libultraship/imgui/backends libultraship/imgui
+
+LUS_SOURCES := libultraship/src/fast libultraship/src/fast/resource/type libultraship/src/fast/resource/factory libultraship/src/ship/resource/factory \
+	libultraship/src/fast/debug libultraship/src/fast/backends libultraship/src/ship libultraship/src/ship/audio libultraship/src/ship/resource/type \
+	libultraship/src/ship/config libultraship/src/ship/controller/controldeck libultraship/src/ship/controller/controldevice libultraship/src/ship/utils \
+	libultraship/src/ship/controller/controldevice/controller libultraship/src/ship/controller/controldevice/controller/mapping libultraship/src/ship/window \
+	libultraship/src/ship/controller/controldevice/controller/mapping/factories libultraship/src/ship/controller/controldevice/controller/mapping/keyboard \
+	libultraship/src/ship/controller/controldevice/controller/mapping/mouse libultraship/src/ship/controller/controldevice/controller/mapping/sdl \
+	libultraship/src/ship/controller/physicaldevice libultraship/src/ship/debug libultraship/src/ship/resource libultraship/src/ship/resource/archive \
+	libultraship/src/ship/utils/binarytools libultraship/src/ship/window/gui libultraship/src/ship/window/gui/resource libultraship/src/libultraship/window/gui \
+	libultraship/src/libultraship/log libultraship/src/libultraship/libultra libultraship/src/libultraship/controller/controldeck libultraship/src/libultraship/bridge \
+	libultraship/src/libultraship/controller/controldevice/controller libultraship/src/libultraship/controller/controldevice/controller/mapping libultraship/imgui \
+	libultraship/src/ship/events
+
+GAME_INCLUDES := . include src src/buffers src/data src/debug src/ending src/racing src/audio src/port src/mods assets/code courses src/engine src/engine/tracks \
+	src/engine/actors src/engine/objects src/engine/sky src/engine/particles src/enhancements src/enhancements/freecam src/engine include/assets spdlog/include \
+	toml/include
+
+GAME_SOURCES := src src/buffers src/data src/debug src/ending src/racing src/audio src/port src/mods assets/code courses src/engine src/engine/tracks \
+	src/engine/actors src/engine/objects src/engine/sky src/engine/particles src/enhancements src/enhancements/freecam src/engine src/port/interpolation \
+	src/port/audio courses/banshee_boardwalk courses/big_donut courses/block_fort courses/bowsers_castle courses/choco_mountain courses/dks_jungle_parkway \
+	courses/double_deck courses/frappe_snowland courses/harbour courses/kalimari_desert courses/koopa_troopa_beach courses/luigi_raceway courses/mario_raceway \
+	courses/moo_moo_farm courses/rainbow_road courses/royal_raceway courses/sherbet_land courses/test_track courses/toads_turnpike courses/wario_stadium \
+	courses/yoshi_valley src/engine/vehicles src/engine/cameras src/port/ui src/engine/editor src/port/resource/importers src/port/resource/type \
+	src/engine/mods src/engine/registry toml/src
+
+SOURCES := $(LUS_SOURCES) $(TORCH_SOURCES) $(GAME_SOURCES)
+
+INCLUDES := $(LUS_INCLUDES) $(TORCH_INCLUDES) $(GAME_INCLUDES)
+
+LIBS = -lzip -lbz2 -lzstd -lz -lyaml-cpp -llzma -lssl -lcrypto -lstdc++ -lpng \
+	-Wl,--whole-archive -lpthread -Wl,--no-whole-archive -ltinyxml2 -lSDL2 -lvorbisfile -lvorbis -logg -lvitaGL \
+	-lvitashark -lSceShaccCgExt -ltaihen_stub -lmathneon -lSceAudioIn_stub \
+	-lSceIme_stub -lSceKernelDmacMgr_stub -lSceGxm_stub -lSceDisplay_stub -lSceTouch_stub -lSceHid_stub -lSceCtrl_stub -lSceNet_stub \
+	-lSceNetCtl_stub -lSceCommonDialog_stub -lSceAudio_stub -lSceSysmodule_stub -lSceMotion_stub -lSceAppUtil_stub \
+	-lSceAppMgr_stub -lSceShaccCg_stub -lScePower_stub
+
+CFILES := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c)) \
+	$(GFXD_CFILES) \
+	src/os/guLookAtF.c src/os/guPerspectiveF.c src/os/guMtxF2L.c src/os/guRotateF.c src/os/guOrthoF.c src/os/guScaleF.c src/os/guTranslateF.c \
+	src/os/guMtxCatF.c src/os/guMtxCatL.c src/os/guNormalize.c libultraship/imgui/backends/imgui_impl_opengl3.c libultraship/imgui/backends/imgui_impl_sdl2.c
+CPPFILES := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.cpp))
+
+CFILES := $(filter-out %.inc.c, $(CFILES))
+CFILES := $(filter-out bin/eu/%, $(CFILES))
+CFILES := $(filter-out src/game/main.c src/pc/dlmalloc.c, $(CFILES))
+
+OBJS := $(CFILES:.c=.o) $(CPPFILES:.cpp=.o) \
+	libultraship/imgui/backends/imgui_impl_opengl3.o \
+	libultraship/imgui/backends/imgui_impl_sdl2.o
+
+OBJS_PREPARE := $(CFILES:.c=.ok) $(CPPFILES:.cpp=.ok) \
+	libultraship/imgui/backends/imgui_impl_opengl3.ok \
+	libultraship/imgui/backends/imgui_impl_sdl2.ok
+
+OBJS_CLEAN := $(CFILES:.c=.oc) $(CPPFILES:.cpp=.oc) \
+	libultraship/imgui/backends/imgui_impl_opengl3.oc \
+	libultraship/imgui/backends/imgui_impl_sdl2.oc
+
+FINAL_OBJS := $(filter-out libultraship/src/ship/audio/OpenALAudioPlayer.o,$(sort $(OBJS)))
+
+CVAR_PREFIX_RANDOMIZER_ENHANCEMENT := gRandoEnhancements
+CVAR_PREFIX_RANDOMIZER_SETTING     := gRandoSettings
+CVAR_PREFIX_COSMETIC               := gCosmetics
+CVAR_PREFIX_AUDIO                  := gAudioEditor
+CVAR_PREFIX_CHEAT                  := gCheats
+CVAR_PREFIX_ENHANCEMENT            := gEnhancements
+CVAR_PREFIX_SETTING                := gSettings
+CVAR_PREFIX_WINDOW                 := gOpenWindows
+CVAR_PREFIX_TRACKER                := gTrackers
+CVAR_PREFIX_DEVELOPER_TOOLS        := gDeveloperTools
+CVAR_PREFIX_GENERAL                := gGeneral
+CVAR_PREFIX_REMOTE                 := gRemote
+CVAR_PREFIX_GAMEPLAY_STATS         := gGameplayStats
+CVAR_PREFIX_TIME_DISPLAY           := gTimeDisplay
+
+VITASDK ?= /usr/local/vitasdk
+VITA_BIN = $(VITASDK)/bin
+PREFIX = arm-vita-eabi
+CC  = $(if $(CCACHE),$(CCACHE) ,)$(VITA_BIN)/$(PREFIX)-gcc
+CXX = $(if $(CCACHE),$(CCACHE) ,)$(VITA_BIN)/$(PREFIX)-g++
+STRIP = $(VITA_BIN)/$(PREFIX)-strip
+VITA_ELF_CREATE = $(VITA_BIN)/vita-elf-create
+VITA_MAKE_FSELF = $(VITA_BIN)/vita-make-fself
+VITA_MKSFOEX = $(VITA_BIN)/vita-mksfoex
+VITA_PACK_VPK = $(VITA_BIN)/vita-pack-vpk
+
+VITA_ENABLE_LTO ?= 1
+VITA_LTO_JOBS ?= 8
+VITAKART_TEXTURE_MISS_LOG ?= 0
+VITAKART_FRAME_HITCH_LOG ?= 0
+VITAKART_FRAME_HITCH_LOG_MS ?= 18
+VITAKART_TEXTURE_PAIR_LIMIT ?= 0
+VITAKART_BUILD_CONFIG := build/vita_build_config.h
+VITA_TEXTURE_PAIR_EXTRA := assets/vita/texture-pairs-extra.manifest
+ifeq ($(VITA_ENABLE_LTO),1)
+    VITA_LTO_FLAGS := -flto=$(VITA_LTO_JOBS) -fuse-linker-plugin -fno-fat-lto-objects
+else
+VITA_LTO_FLAGS :=
+endif
+
+CFLAGS = -g -Wl,-q,--allow-multiple-definition,--gc-sections -O3 $(VITA_LTO_FLAGS) \
+	-pipe -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections -fno-semantic-interposition \
+	-mcpu=cortex-a9 -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard -DNDEBUG \
+	-fno-short-enums -fsigned-char \
+	-Wno-error=incompatible-pointer-types -Wno-error=int-conversion -Wno-error=implicit-function-declaration \
+	$(foreach dir,$(INCLUDES),-I$(dir)) -fno-strict-aliasing -DMA_NO_RUNTIME_LINKING \
+	-Wno-narrowing -DIMGUI_IMPL_OPENGL_ES2 -DSPDLOG_ACTIVE_LEVEL=6 -DFMT_HEADER_ONLY \
+	-I$(VITASDK)/$(PREFIX)/include/SDL2 -DENABLE_OPENGL=1 -DNON_EQUIVALENT=1 \
+	-D_LANGUAGE_C -D_USE_MATH_DEFINES -DCIMGUI_DEFINE_ENUMS_AND_STRUCTS -DNAUDIO_SUPPORT \
+	-DAVOID_UB=1 -DF3DEX_GBI=1 -DNON_MATCHING=1 -DSPAGHETTI_VERSION="\"VK64 1.0.0\"" \
+	-DVERSION_US=1 -DENABLE_RUMBLE=1 -DIMGUI_DEFINE_MATH_OPERATORS -DMK64_SUPPORT \
+	-include $(VITAKART_BUILD_CONFIG) \
+	-DCVAR_PREFIX_RANDOMIZER_ENHANCEMENT=\"$(CVAR_PREFIX_RANDOMIZER_ENHANCEMENT)\" \
+	-DCVAR_PREFIX_RANDOMIZER_SETTING=\"$(CVAR_PREFIX_RANDOMIZER_SETTING)\" \
+	-DCVAR_PREFIX_COSMETIC=\"$(CVAR_PREFIX_COSMETIC)\" \
+	-DCVAR_PREFIX_AUDIO=\"$(CVAR_PREFIX_AUDIO)\" \
+	-DCVAR_PREFIX_CHEAT=\"$(CVAR_PREFIX_CHEAT)\" \
+	-DCVAR_PREFIX_ENHANCEMENT=\"$(CVAR_PREFIX_ENHANCEMENT)\" \
+	-DCVAR_PREFIX_SETTING=\"$(CVAR_PREFIX_SETTING)\" \
+	-DCVAR_PREFIX_WINDOW=\"$(CVAR_PREFIX_WINDOW)\" \
+	-DCVAR_PREFIX_TRACKER=\"$(CVAR_PREFIX_TRACKER)\" \
+	-DCVAR_PREFIX_DEVELOPER_TOOLS=\"$(CVAR_PREFIX_DEVELOPER_TOOLS)\" \
+	-DCVAR_PREFIX_GENERAL=\"$(CVAR_PREFIX_GENERAL)\" \
+	-DCVAR_PREFIX_REMOTE=\"$(CVAR_PREFIX_REMOTE)\" \
+	-DCVAR_PREFIX_GAMEPLAY_STATS=\"$(CVAR_PREFIX_GAMEPLAY_STATS)\" \
+	-DCVAR_PREFIX_TIME_DISPLAY=\"$(CVAR_PREFIX_TIME_DISPLAY)\" \
+	-DCVAR_VSYNC_ENABLED=\"gVsyncEnabled\" \
+	-DCVAR_Z_FIGHTING_MODE=\"gZFightingMode\" \
+	-DCVAR_NEW_FILE_DROPPED=\"gNewFileDropped\" \
+	-DCVAR_DROPPED_FILE=\"gDroppedFile\" \
+	-DCVAR_INTERNAL_RESOLUTION=\"gInternalResolution\" \
+	-DCVAR_MSAA_VALUE=\"gMSAAValue\" \
+	-DCVAR_SDL_WINDOWED_FULLSCREEN=\"gSdlWindowedFullscreen\" \
+	-DCVAR_TEXTURE_FILTER=\"gTextureFilter\" \
+	-DCVAR_IMGUI_CONTROLLER_NAV=\"gControlNav\" \
+	-DCVAR_CONSOLE_WINDOW_OPEN=\"gConsoleEnabled\" \
+	-DCVAR_CONTROLLER_CONFIGURATION_WINDOW_OPEN=\"gControllerConfigurationEnabled\" \
+	-DCVAR_CONTROLLER_DISCONNECTED_WINDOW_OPEN=\"gControllerDisconnectedWindowEnabled\" \
+	-DCVAR_CONTROLLER_REORDERING_WINDOW_OPEN=\"gControllerReorderingWindowEnabled\" \
+	-DCVAR_GFX_DEBUGGER_WINDOW_OPEN=\"gGfxDebuggerEnabled\" \
+	-DCVAR_STATS_WINDOW_OPEN=\"gStatsEnabled\" \
+	-DCVAR_ENABLE_MULTI_VIEWPORTS=\"gEnableMultiViewports\" \
+	-DCVAR_LOW_RES_MODE=\"gLowResMode\" \
+	-DCVAR_SIMULATED_INPUT_LAG=\"gSimulatedInputLag\" \
+	-DCVAR_GAME_OVERLAY_FONT=\"gOverlayFont\" \
+	-DCVAR_MENU_BAR_OPEN=\"gOpenMenuBar\" \
+	-DCVAR_PREFIX_CONTROLLERS=\"gControllers\" \
+	-DCVAR_PREFIX_ADVANCED_RESOLUTION=\"gAdvancedResolution\" \
+	-DCVAR_AUDIO_CHANNELS_SETTING=\"gAudioChannelsSetting\" \
+	-DCVAR_ALLOW_BACKGROUND_INPUTS=\"gAllowBackgroundInputs\" \
+	-DCVAR_SCRIPT_SAFE_LEVEL=\"gScriptSafeLevel\"
+
+CXXFLAGS = $(CFLAGS) -fexceptions -std=gnu++20 -fpermissive
+ASFLAGS  = $(CFLAGS)
+
+build:
+	mkdir -p $@
+
+.PHONY: FORCE
+FORCE:
+
+$(VITAKART_BUILD_CONFIG): FORCE | build
+	@tmp="$@.tmp"; \
+	{ \
+		printf '%s\n' '#pragma once'; \
+		printf '%s\n' '#define VITAKART_TEXTURE_MISS_LOG $(VITAKART_TEXTURE_MISS_LOG)'; \
+		printf '%s\n' '#define VITAKART_FRAME_HITCH_LOG $(VITAKART_FRAME_HITCH_LOG)'; \
+		printf '%s\n' '#define VITAKART_FRAME_HITCH_LOG_MS $(VITAKART_FRAME_HITCH_LOG_MS)'; \
+		printf '%s\n' '#define VITAKART_TEXTURE_PAIR_LIMIT $(VITAKART_TEXTURE_PAIR_LIMIT)'; \
+	} > "$$tmp"; \
+	if cmp -s "$$tmp" "$@"; then rm "$$tmp"; else mv "$$tmp" "$@"; fi
+
+$(OBJS) $(OBJS_PREPARE) $(OBJS_CLEAN): $(VITAKART_BUILD_CONFIG)
+
+$(GFXD_OBJS): CFLAGS += -UF3DEX_GBI
+$(GFXD_OBJS): Makefile.vita
+
+all: vita-kart-64.vpk
+
+assets/vita/loading.png: tools/vita_generate_loading_art.py
+	$(PYTHON) tools/vita_generate_loading_art.py --output $@
+
+livearea/icon0.png: tools/vita_generate_icon_art.py tools/vita_generate_loading_art.py
+	$(PYTHON) tools/vita_generate_icon_art.py --output $@
+
+livearea/startup-vk64.png: tools/vita_generate_livearea_art.py tools/vita_generate_loading_art.py
+	$(PYTHON) tools/vita_generate_livearea_art.py --output $@
+
+assets/vita/brand-assets.manifest.json: assets/vita/loading.png livearea/icon0.png livearea/startup-vk64.png tools/vita_generate_brand_assets.sh tools/vita_generate_loading_art.py tools/vita_generate_livearea_art.py tools/vita_generate_icon_art.py tools/vita_write_brand_asset_manifest.py
+	$(PYTHON) tools/vita_write_brand_asset_manifest.py --output $@
+
+livearea-indexed/icon0.png: livearea/icon0.png tools/vita_index_png.py
+	$(PYTHON) tools/vita_index_png.py $< $@
+
+livearea-indexed/pic0.png: livearea/pic0.png tools/vita_index_png.py
+	$(PYTHON) tools/vita_index_png.py $< $@
+
+livearea-indexed/bg.png: livearea/bg.png tools/vita_index_png.py
+	$(PYTHON) tools/vita_index_png.py $< $@
+
+livearea-indexed/startup.png: livearea/startup-vk64.png tools/vita_index_png.py
+	$(PYTHON) tools/vita_index_png.py $< $@
+
+assets/vita/texture-pairs.manifest: mk64-vita.o2r tools/vita_generate_texture_pairs.py $(VITA_TEXTURE_PAIR_EXTRA)
+	$(PYTHON) tools/vita_generate_texture_pairs.py mk64-vita.o2r $@ --extra $(VITA_TEXTURE_PAIR_EXTRA)
+
+VITA_RUNTIME_ASSETS := assets/vita/loading.png assets/vita/brand-assets.manifest.json assets/vita/shader-manifest.txt assets/vita/texture-pairs.manifest
+
+vita-kart-64.vpk: vita-kart-64.velf spaghetti.o2r Makefile.vita $(VITA_RUNTIME_ASSETS) livearea-indexed/icon0.png livearea-indexed/pic0.png livearea-indexed/bg.png livearea-indexed/startup.png
+	$(VITA_MAKE_FSELF) -c -s $< eboot.bin
+	$(VITA_MKSFOEX) -s TITLE_ID=$(TITLE) -s CONTENT_ID=$(CONTENT_ID) -d ATTRIBUTE2=12 "$(TARGET)" param.sfo
+	$(VITA_PACK_VPK) -s param.sfo -b eboot.bin vita-kart-64.vpk \
+		-a livearea-indexed/icon0.png=sce_sys/icon0.png \
+		-a livearea-indexed/pic0.png=sce_sys/pic0.png \
+		-a livearea-indexed/bg.png=sce_sys/livearea/contents/bg.png \
+		-a livearea-indexed/startup.png=sce_sys/livearea/contents/startup.png \
+		-a livearea/template.xml=sce_sys/livearea/contents/template.xml \
+		-a assets/vita/loading.png=loading.png \
+		-a assets/vita/brand-assets.manifest.json=brand-assets.manifest.json \
+		-a assets/vita/shader-manifest.txt=shader-manifest.txt \
+		-a assets/vita/texture-pairs.manifest=texture-pairs.manifest \
+		-a spaghetti.o2r=spaghetti.o2r
+
+prepare: f $(OBJS_PREPARE)
+
+f:
+	mkdir f
+
+%.ok:
+	$(eval gen_num=$(shell echo $$(($(gen_num)+1))))
+	@cp $(@:k=) f/$(gen_num).o
+
+%.oc:
+	@rm -rf $(@:c=)
+
+%.velf: %.elf
+	cp $< $<.unstripped.elf
+	$(STRIP) -g $<
+	$(VITA_ELF_CREATE) $< $@
+
+vita-kart-64.elf: $(FINAL_OBJS)
+	$(CXX) $(CXXFLAGS) $^ $(LIBS) -o $@
+
+objects: $(OBJS)
+
+clean: $(OBJS_CLEAN)
+	@rm -rf vita-kart-64.velf vita-kart-64.elf $(FINAL_OBJS) eboot.bin vita-kart-64.vpk param.sfo livearea-indexed
+.DEFAULT_GOAL := all

@@ -1,0 +1,1647 @@
+#include "ship/window/Window.h"
+#ifdef ENABLE_OPENGL
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+#include <algorithm>
+#include <iterator>
+#include <map>
+#include <unordered_map>
+
+#ifndef _LANGUAGE_C
+#define _LANGUAGE_C
+#endif
+
+#ifdef __MINGW32__
+#define FOR_WINDOWS 1
+#else
+#define FOR_WINDOWS 0
+#endif
+
+#include "fast/backends/gfx_opengl.h"
+#include "ship/window/gui/Gui.h"
+#include "ship/Context.h"
+#include "ship/config/ConsoleVariable.h"
+
+#ifdef __vita__
+#include <psp2/gxm.h>
+extern "C" {
+    void vglBufferData(GLenum target, const GLvoid *data);
+};
+#define SHADER_MAGIC (3)
+#endif
+
+namespace Fast {
+int GfxRenderingAPIOGL::GetMaxTextureSize() {
+    GLint max_texture_size;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+    return max_texture_size;
+}
+
+const char* GfxRenderingAPIOGL::GetName() {
+    return "OpenGL";
+}
+
+bool GfxRenderingAPIOGL::GetClipParameters() {
+    return mFrameBuffers[mCurrentFrameBuffer].invertY;
+}
+
+static void VertexArraySetAttribs(ShaderProgram* prg) {
+    size_t numFloats = prg->numFloats;
+    size_t pos = 0;
+
+    for (int i = 0; i < prg->numAttribs; i++) {
+        if (prg->attribLocations[i] >= 0) {
+            glEnableVertexAttribArray(prg->attribLocations[i]);
+            glVertexAttribPointer(prg->attribLocations[i], prg->attribSizes[i], GL_FLOAT, GL_FALSE,
+                                  numFloats * sizeof(float), (void*)(pos * sizeof(float)));
+        }
+        pos += prg->attribSizes[i];
+    }
+}
+
+void GfxRenderingAPIOGL::SetUniforms(ShaderProgram* prg) const {
+    glUniform1i(prg->frameCountLocation, mFrameCount);
+    glUniform1f(prg->noiseScaleLocation, mCurrentNoiseScale);
+}
+
+void GfxRenderingAPIOGL::SetPerDrawUniforms() {
+}
+
+void GfxRenderingAPIOGL::UnloadShader(ShaderProgram* old_prg) {
+    if (old_prg != nullptr && old_prg == mLastLoadedShader) {
+        for (unsigned int i = 0; i < old_prg->numAttribs; i++) {
+            if (old_prg->attribLocations[i] >= 0) {
+                glDisableVertexAttribArray(old_prg->attribLocations[i]);
+            }
+        }
+        mLastLoadedShader = nullptr;
+    }
+}
+
+void GfxRenderingAPIOGL::LoadShader(ShaderProgram* new_prg) {
+    // if (!new_prg) return;
+    mCurrentShaderProgram = new_prg;
+    if (new_prg != mLastLoadedShader) {
+        glUseProgram(new_prg->openglProgramId);
+        VertexArraySetAttribs(new_prg);
+        mLastLoadedShader = new_prg;
+    }
+    SetUniforms(new_prg);
+}
+
+#define RAND_NOISE "((random(vec3(floor(gl_FragCoord.xy * noise_scale), float(frame_count))) + 1.0) / 2.0)"
+
+static const char* shader_item_to_str(uint32_t item, bool with_alpha, bool only_alpha, bool inputs_have_alpha,
+                                      bool first_cycle, bool hint_single_element) {
+    if (!only_alpha) {
+        switch (item) {
+            case SHADER_0:
+                return with_alpha ? "vec4(0.0, 0.0, 0.0, 0.0)" : "vec3(0.0, 0.0, 0.0)";
+            case SHADER_1:
+                return with_alpha ? "vec4(1.0, 1.0, 1.0, 1.0)" : "vec3(1.0, 1.0, 1.0)";
+            case SHADER_INPUT_1:
+                return with_alpha || !inputs_have_alpha ? "vInput1" : "vInput1.rgb";
+            case SHADER_INPUT_2:
+                return with_alpha || !inputs_have_alpha ? "vInput2" : "vInput2.rgb";
+            case SHADER_INPUT_3:
+                return with_alpha || !inputs_have_alpha ? "vInput3" : "vInput3.rgb";
+            case SHADER_INPUT_4:
+                return with_alpha || !inputs_have_alpha ? "vInput4" : "vInput4.rgb";
+            case SHADER_TEXEL0:
+                return first_cycle ? (with_alpha ? "texVal0" : "texVal0.rgb")
+                                   : (with_alpha ? "texVal1" : "texVal1.rgb");
+            case SHADER_TEXEL0A:
+                return first_cycle
+                           ? (hint_single_element ? "texVal0.a"
+                                                  : (with_alpha ? "vec4(texVal0.a, texVal0.a, texVal0.a, texVal0.a)"
+                                                                : "vec3(texVal0.a, texVal0.a, texVal0.a)"))
+                           : (hint_single_element ? "texVal1.a"
+                                                  : (with_alpha ? "vec4(texVal1.a, texVal1.a, texVal1.a, texVal1.a)"
+                                                                : "vec3(texVal1.a, texVal1.a, texVal1.a)"));
+            case SHADER_TEXEL1A:
+                return first_cycle
+                           ? (hint_single_element ? "texVal1.a"
+                                                  : (with_alpha ? "vec4(texVal1.a, texVal1.a, texVal1.a, texVal1.a)"
+                                                                : "vec3(texVal1.a, texVal1.a, texVal1.a)"))
+                           : (hint_single_element ? "texVal0.a"
+                                                  : (with_alpha ? "vec4(texVal0.a, texVal0.a, texVal0.a, texVal0.a)"
+                                                                : "vec3(texVal0.a, texVal0.a, texVal0.a)"));
+            case SHADER_TEXEL1:
+                return first_cycle ? (with_alpha ? "texVal1" : "texVal1.rgb")
+                                   : (with_alpha ? "texVal0" : "texVal0.rgb");
+            case SHADER_COMBINED:
+                return with_alpha ? "texel" : "texel.rgb";
+            case SHADER_NOISE:
+                return with_alpha ? "vec4(" RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ")"
+                                  : "vec3(" RAND_NOISE ", " RAND_NOISE ", " RAND_NOISE ")";
+        }
+    } else {
+        switch (item) {
+            case SHADER_0:
+                return "0.0";
+            case SHADER_1:
+                return "1.0";
+            case SHADER_INPUT_1:
+                return "vInput1.a";
+            case SHADER_INPUT_2:
+                return "vInput2.a";
+            case SHADER_INPUT_3:
+                return "vInput3.a";
+            case SHADER_INPUT_4:
+                return "vInput4.a";
+            case SHADER_TEXEL0:
+                return first_cycle ? "texVal0.a" : "texVal1.a";
+            case SHADER_TEXEL0A:
+                return first_cycle ? "texVal0.a" : "texVal1.a";
+            case SHADER_TEXEL1A:
+                return first_cycle ? "texVal1.a" : "texVal0.a";
+            case SHADER_TEXEL1:
+                return first_cycle ? "texVal1.a" : "texVal0.a";
+            case SHADER_COMBINED:
+                return "texel.a";
+            case SHADER_NOISE:
+                return RAND_NOISE;
+        }
+    }
+    return "";
+}
+
+static void append_str(char* buf, size_t* len, const char* str) {
+    while (*str != '\0') {
+        buf[(*len)++] = *str++;
+    }
+}
+
+static void append_line(char* buf, size_t* len, const char* str) {
+    while (*str != '\0') {
+        buf[(*len)++] = *str++;
+    }
+    buf[(*len)++] = '\n';
+}
+
+static void append_formula(char* buf, size_t* len, const int c[2][4],
+                           bool do_single, bool do_multiply, bool do_mix,
+                           bool with_alpha, bool only_alpha, bool opt_alpha, bool first_cycle) {
+    if (do_single) {
+        append_str(buf, len, shader_item_to_str(c[only_alpha][3], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+    } else if (do_multiply) {
+        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+        append_str(buf, len, " * ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, first_cycle, true));
+    } else if (do_mix) {
+        append_str(buf, len, "mix(");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][1], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+        append_str(buf, len, ", ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+        append_str(buf, len, ", ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, first_cycle, true));
+        append_str(buf, len, ")");
+    } else {
+        append_str(buf, len, "(");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+        append_str(buf, len, " - ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][1], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+        append_str(buf, len, ") * ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, first_cycle, true));
+        append_str(buf, len, " + ");
+        append_str(buf, len, shader_item_to_str(c[only_alpha][3], with_alpha, only_alpha, opt_alpha, first_cycle, false));
+    }
+}
+
+static std::string BuildVsShaderInline(const CCFeatures& cc_features, size_t& out_num_floats) {
+    char vs_buf[4096];
+    size_t vs_len = 0;
+    size_t num_floats = 4;
+
+#if defined(__APPLE__)
+    append_line(vs_buf, &vs_len, "#version 410 core");
+    append_line(vs_buf, &vs_len, "in vec4 aVtxPos;");
+#elif defined(__vita__)
+    append_line(vs_buf, &vs_len, "// VitaGL legacy GLSL");
+    append_line(vs_buf, &vs_len, "attribute vec4 aVtxPos;");
+#elif defined(USE_OPENGLES)
+    append_line(vs_buf, &vs_len, "#version 300 es");
+    append_line(vs_buf, &vs_len, "in vec4 aVtxPos;");
+#else
+    append_line(vs_buf, &vs_len, "#version 110");
+    append_line(vs_buf, &vs_len, "attribute vec4 aVtxPos;");
+#endif
+
+    for (int i = 0; i < 2; i++) {
+        if (cc_features.usedTextures[i]) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+            vs_len += sprintf(vs_buf + vs_len, "in vec2 aTexCoord%d;\n", i);
+            vs_len += sprintf(vs_buf + vs_len, "out vec2 vTexCoord%d;\n", i);
+#else
+            vs_len += sprintf(vs_buf + vs_len, "attribute vec2 aTexCoord%d;\n", i);
+            vs_len += sprintf(vs_buf + vs_len, "varying vec2 vTexCoord%d;\n", i);
+#endif
+            num_floats += 2;
+            for (int j = 0; j < 2; j++) {
+                if (cc_features.clamp[i][j]) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+                    vs_len += sprintf(vs_buf + vs_len, "in float aTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+                    vs_len += sprintf(vs_buf + vs_len, "out float vTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+#else
+                    vs_len += sprintf(vs_buf + vs_len, "attribute float aTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+                    vs_len += sprintf(vs_buf + vs_len, "varying float vTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+#endif
+                    num_floats += 1;
+                }
+            }
+        }
+    }
+
+    if (cc_features.opt_fog) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(vs_buf, &vs_len, "in vec4 aFog;");
+        append_line(vs_buf, &vs_len, "out vec4 vFog;");
+#else
+        append_line(vs_buf, &vs_len, "attribute vec4 aFog;");
+        append_line(vs_buf, &vs_len, "varying vec4 vFog;");
+#endif
+        num_floats += 4;
+    }
+
+    if (cc_features.opt_grayscale) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(vs_buf, &vs_len, "in vec4 aGrayscaleColor;");
+        append_line(vs_buf, &vs_len, "out vec4 vGrayscaleColor;");
+#else
+        append_line(vs_buf, &vs_len, "attribute vec4 aGrayscaleColor;");
+        append_line(vs_buf, &vs_len, "varying vec4 vGrayscaleColor;");
+#endif
+        num_floats += 4;
+    }
+
+    for (int i = 0; i < cc_features.numInputs; i++) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        vs_len += sprintf(vs_buf + vs_len, "in vec%d aInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+        vs_len += sprintf(vs_buf + vs_len, "out vec%d vInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+#else
+        vs_len += sprintf(vs_buf + vs_len, "attribute vec%d aInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+        vs_len += sprintf(vs_buf + vs_len, "varying vec%d vInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+#endif
+        num_floats += cc_features.opt_alpha ? 4 : 3;
+    }
+
+    append_line(vs_buf, &vs_len, "void main() {");
+
+    for (int i = 0; i < 2; i++) {
+        if (cc_features.usedTextures[i]) {
+            vs_len += sprintf(vs_buf + vs_len, "vTexCoord%d = aTexCoord%d;\n", i, i);
+            for (int j = 0; j < 2; j++) {
+                if (cc_features.clamp[i][j]) {
+                    vs_len += sprintf(vs_buf + vs_len, "vTexClamp%s%d = aTexClamp%s%d;\n",
+                                      j == 0 ? "S" : "T", i, j == 0 ? "S" : "T", i);
+                }
+            }
+        }
+    }
+
+    if (cc_features.opt_fog)       append_line(vs_buf, &vs_len, "vFog = aFog / 255.f;");
+    if (cc_features.opt_grayscale)  append_line(vs_buf, &vs_len, "vGrayscaleColor = aGrayscaleColor / 255.f;");
+
+    for (int i = 0; i < cc_features.numInputs; i++) {
+        vs_len += sprintf(vs_buf + vs_len, "vInput%d = aInput%d;\n", i + 1, i + 1);
+    }
+
+    append_line(vs_buf, &vs_len, "gl_Position = aVtxPos;");
+
+#if defined(USE_OPENGLES) || defined(__vita__)
+    append_line(vs_buf, &vs_len, "gl_Position.z *= 0.3f;");
+#endif
+
+    append_line(vs_buf, &vs_len, "}");
+
+    vs_buf[vs_len] = '\0';
+    out_num_floats = num_floats;
+    return std::string(vs_buf, vs_len);
+}
+
+static std::string BuildFsShaderInline(const CCFeatures& cc_features, FilteringMode filter_mode, bool srgb_mode) {
+    char fs_buf[16384];
+    size_t fs_len = 0;
+
+#ifdef __vita__
+    if (filter_mode == FILTER_THREE_POINT) {
+        filter_mode = FILTER_LINEAR;
+    }
+#endif
+
+#if defined(__APPLE__)
+    append_line(fs_buf, &fs_len, "#version 410 core");
+#elif defined(__vita__)
+    append_line(fs_buf, &fs_len, "// VitaGL legacy GLSL");
+#elif defined(USE_OPENGLES)
+    append_line(fs_buf, &fs_len, "#version 300 es");
+    append_line(fs_buf, &fs_len, "precision mediump float;");
+#else
+    append_line(fs_buf, &fs_len, "#version 130");
+#endif
+
+    for (int i = 0; i < 2; i++) {
+        if (cc_features.usedTextures[i]) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+            fs_len += sprintf(fs_buf + fs_len, "in vec2 vTexCoord%d;\n", i);
+#else
+            fs_len += sprintf(fs_buf + fs_len, "varying vec2 vTexCoord%d;\n", i);
+#endif
+            for (int j = 0; j < 2; j++) {
+                if (cc_features.clamp[i][j]) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+                    fs_len += sprintf(fs_buf + fs_len, "in float vTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+#else
+                    fs_len += sprintf(fs_buf + fs_len, "varying float vTexClamp%s%d;\n", j == 0 ? "S" : "T", i);
+#endif
+                }
+            }
+        }
+    }
+
+    if (cc_features.opt_fog) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "in vec4 vFog;");
+#else
+        append_line(fs_buf, &fs_len, "varying vec4 vFog;");
+#endif
+    }
+
+    if (cc_features.opt_grayscale) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "in vec4 vGrayscaleColor;");
+#else
+        append_line(fs_buf, &fs_len, "varying vec4 vGrayscaleColor;");
+#endif
+    }
+
+    for (int i = 0; i < cc_features.numInputs; i++) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        fs_len += sprintf(fs_buf + fs_len, "in vec%d vInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+#else
+        fs_len += sprintf(fs_buf + fs_len, "varying vec%d vInput%d;\n", cc_features.opt_alpha ? 4 : 3, i + 1);
+#endif
+    }
+
+    if (cc_features.usedTextures[0]) append_line(fs_buf, &fs_len, "uniform sampler2D uTex0;");
+    if (cc_features.usedTextures[1]) append_line(fs_buf, &fs_len, "uniform sampler2D uTex1;");
+    if (cc_features.used_masks[0])   append_line(fs_buf, &fs_len, "uniform sampler2D uTexMask0;");
+    if (cc_features.used_masks[1])   append_line(fs_buf, &fs_len, "uniform sampler2D uTexMask1;");
+    if (cc_features.used_blend[0])   append_line(fs_buf, &fs_len, "uniform sampler2D uTexBlend0;");
+    if (cc_features.used_blend[1])   append_line(fs_buf, &fs_len, "uniform sampler2D uTexBlend1;");
+
+    append_line(fs_buf, &fs_len, "uniform int frame_count;");
+    append_line(fs_buf, &fs_len, "uniform float noise_scale;");
+
+    append_line(fs_buf, &fs_len, "float random(in vec3 value) {");
+    append_line(fs_buf, &fs_len, "    float _random = dot(sin(value), vec3(12.9898, 78.233, 37.719));");
+    append_line(fs_buf, &fs_len, "    return fract(sin(_random) * 143758.5453);");
+    append_line(fs_buf, &fs_len, "}");
+
+    if (filter_mode == FILTER_THREE_POINT) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "#define TEX_OFFSET(off) texture(tex, texCoord - (off)/texSize)");
+#else
+        append_line(fs_buf, &fs_len, "#define TEX_OFFSET(off) texture2D(tex, texCoord - (off)/texSize)");
+#endif
+        append_line(fs_buf, &fs_len, "vec4 filter3point(in sampler2D tex, in vec2 texCoord, in vec2 texSize) {");
+        append_line(fs_buf, &fs_len, "    vec2 offset = fract(texCoord*texSize - vec2(0.5));");
+        append_line(fs_buf, &fs_len, "    offset -= step(1.0, offset.x + offset.y);");
+        append_line(fs_buf, &fs_len, "    vec4 c0 = TEX_OFFSET(offset);");
+        append_line(fs_buf, &fs_len, "    vec4 c1 = TEX_OFFSET(vec2(offset.x - sign(offset.x), offset.y));");
+        append_line(fs_buf, &fs_len, "    vec4 c2 = TEX_OFFSET(vec2(offset.x, offset.y - sign(offset.y)));");
+        append_line(fs_buf, &fs_len, "    return c0 + abs(offset.x)*(c1-c0) + abs(offset.y)*(c2-c0);");
+        append_line(fs_buf, &fs_len, "}");
+        append_line(fs_buf, &fs_len, "vec4 hookTexture2D(in sampler2D tex, in vec2 uv, in vec2 texSize) {");
+        append_line(fs_buf, &fs_len, "    return filter3point(tex, uv, texSize);");
+        append_line(fs_buf, &fs_len, "}");
+    } else {
+        append_line(fs_buf, &fs_len, "vec4 hookTexture2D(in sampler2D tex, in vec2 uv, in vec2 texSize) {");
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "    return texture(tex, uv);");
+#else
+        append_line(fs_buf, &fs_len, "    return texture2D(tex, uv);");
+#endif
+        append_line(fs_buf, &fs_len, "}");
+    }
+
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+    append_line(fs_buf, &fs_len, "out vec4 outColor;");
+#endif
+
+    if (srgb_mode) {
+        append_line(fs_buf, &fs_len, "vec4 fromLinear(vec4 linearRGB){");
+        append_line(fs_buf, &fs_len, "    bvec3 cutoff = lessThan(linearRGB.rgb, vec3(0.0031308));");
+        append_line(fs_buf, &fs_len, "    vec3 higher = vec3(1.055)*pow(linearRGB.rgb, vec3(1.0/2.4)) - vec3(0.055);");
+        append_line(fs_buf, &fs_len, "    vec3 lower = linearRGB.rgb * vec3(12.92);");
+        append_line(fs_buf, &fs_len, "    return vec4(mix(higher, lower, cutoff), linearRGB.a);}");
+    }
+
+#if defined(__vita__)
+    append_line(fs_buf, &fs_len, "float WRAP(float x, float low, float high) { return mod(x - low, high - low) + low; }");
+    append_line(fs_buf, &fs_len, "vec3 WRAP(vec3 x, float low, float high) { return mod(x - vec3(low), vec3(high - low)) + vec3(low); }");
+    append_line(fs_buf, &fs_len, "vec4 WRAP(vec4 x, float low, float high) { return mod(x - vec4(low), vec4(high - low)) + vec4(low); }");
+    append_line(fs_buf, &fs_len, "void main() {");
+#else
+    append_line(fs_buf, &fs_len, "void main() {");
+    append_line(fs_buf, &fs_len, "#define WRAP(x, low, high) mod((x)-(low), (high)-(low)) + (low)");
+#endif
+
+    for (int i = 0; i < 2; i++) {
+        if (cc_features.usedTextures[i]) {
+            bool s = cc_features.clamp[i][0], t = cc_features.clamp[i][1];
+#if defined(__vita__)
+            fs_len += sprintf(fs_buf + fs_len, "vec2 texSize%d = vec2(1024.0, 1024.0);\n", i);
+#elif defined(USE_OPENGLES)
+            fs_len += sprintf(fs_buf + fs_len, "vec2 texSize%d = vec2(textureSize(uTex%d, 0));\n", i, i);
+#else
+            fs_len += sprintf(fs_buf + fs_len, "vec2 texSize%d = textureSize(uTex%d, 0);\n", i, i);
+#endif
+
+            if (!s && !t) {
+                fs_len += sprintf(fs_buf + fs_len, "vec2 vTexCoordAdj%d = vTexCoord%d;\n", i, i);
+            } else if (s && t) {
+                fs_len += sprintf(fs_buf + fs_len,
+                    "vec2 vTexCoordAdj%d = clamp(vTexCoord%d, 0.5 / texSize%d, vec2(vTexClampS%d, vTexClampT%d));\n",
+                    i, i, i, i, i);
+            } else if (s) {
+                fs_len += sprintf(fs_buf + fs_len,
+                    "vec2 vTexCoordAdj%d = vec2(clamp(vTexCoord%d.s, 0.5 / texSize%d.s, vTexClampS%d), vTexCoord%d.t);\n",
+                    i, i, i, i, i);
+            } else {
+                fs_len += sprintf(fs_buf + fs_len,
+                    "vec2 vTexCoordAdj%d = vec2(vTexCoord%d.s, clamp(vTexCoord%d.t, 0.5 / texSize%d.t, vTexClampT%d));\n",
+                    i, i, i, i, i);
+            }
+
+            fs_len += sprintf(fs_buf + fs_len,
+                "vec4 texVal%d = hookTexture2D(uTex%d, vTexCoordAdj%d, texSize%d);\n", i, i, i, i);
+
+            if (cc_features.used_masks[i]) {
+#if defined(__vita__)
+                fs_len += sprintf(fs_buf + fs_len, "vec2 maskSize%d = vec2(1024.0, 1024.0);\n", i);
+#elif defined(USE_OPENGLES)
+                fs_len += sprintf(fs_buf + fs_len, "vec2 maskSize%d = vec2(textureSize(uTexMask%d, 0));\n", i, i);
+#else
+                fs_len += sprintf(fs_buf + fs_len, "vec2 maskSize%d = textureSize(uTexMask%d, 0);\n", i, i);
+#endif
+                fs_len += sprintf(fs_buf + fs_len,
+                    "vec4 maskVal%d = hookTexture2D(uTexMask%d, vTexCoordAdj%d, maskSize%d);\n", i, i, i, i);
+
+                if (cc_features.used_blend[i]) {
+                    fs_len += sprintf(fs_buf + fs_len,
+                        "vec4 blendVal%d = hookTexture2D(uTexBlend%d, vTexCoordAdj%d, texSize%d);\n", i, i, i, i);
+                } else {
+                    fs_len += sprintf(fs_buf + fs_len, "vec4 blendVal%d = vec4(0, 0, 0, 0);\n", i);
+                }
+                fs_len += sprintf(fs_buf + fs_len,
+                    "texVal%d = mix(texVal%d, blendVal%d, maskVal%d.a);\n", i, i, i, i);
+            }
+        }
+    }
+
+    append_line(fs_buf, &fs_len, cc_features.opt_alpha ? "vec4 texel;" : "vec3 texel;");
+
+    for (int c = 0; c < (cc_features.opt_2cyc ? 2 : 1); c++) {
+        if (c == 1) {
+            if (cc_features.opt_alpha) {
+                if (cc_features.c[c][1][2] == SHADER_COMBINED)
+                    append_line(fs_buf, &fs_len, "texel.a = WRAP(texel.a, -1.01, 1.01);");
+                else
+                    append_line(fs_buf, &fs_len, "texel.a = WRAP(texel.a, -0.51, 1.51);");
+            }
+            if (cc_features.c[c][0][2] == SHADER_COMBINED)
+                append_line(fs_buf, &fs_len, "texel.rgb = WRAP(texel.rgb, -1.01, 1.01);");
+            else
+                append_line(fs_buf, &fs_len, "texel.rgb = WRAP(texel.rgb, -0.51, 1.51);");
+        }
+
+        append_str(fs_buf, &fs_len, "texel = ");
+        if (!cc_features.color_alpha_same[c] && cc_features.opt_alpha) {
+            append_str(fs_buf, &fs_len, "vec4(");
+            append_formula(fs_buf, &fs_len, cc_features.c[c],
+                           cc_features.do_single[c][0], cc_features.do_multiply[c][0], cc_features.do_mix[c][0],
+                           false, false, true, c == 0);
+            append_str(fs_buf, &fs_len, ", ");
+            append_formula(fs_buf, &fs_len, cc_features.c[c],
+                           cc_features.do_single[c][1], cc_features.do_multiply[c][1], cc_features.do_mix[c][1],
+                           true, true, true, c == 0);
+            append_str(fs_buf, &fs_len, ")");
+        } else {
+            append_formula(fs_buf, &fs_len, cc_features.c[c],
+                           cc_features.do_single[c][0], cc_features.do_multiply[c][0], cc_features.do_mix[c][0],
+                           cc_features.opt_alpha, false, cc_features.opt_alpha, c == 0);
+        }
+        append_line(fs_buf, &fs_len, ";");
+    }
+
+    append_line(fs_buf, &fs_len, "texel = WRAP(texel, -0.51, 1.51);");
+    append_line(fs_buf, &fs_len, "texel = clamp(texel, 0.0, 1.0);");
+
+    if (cc_features.opt_fog) {
+        if (cc_features.opt_alpha)
+            append_line(fs_buf, &fs_len, "texel = vec4(mix(texel.rgb, vFog.rgb, vFog.a), texel.a);");
+        else
+            append_line(fs_buf, &fs_len, "texel = mix(texel, vFog.rgb, vFog.a);");
+    }
+
+    if (cc_features.opt_texture_edge && cc_features.opt_alpha)
+        append_line(fs_buf, &fs_len, "if (texel.a > 0.19) texel.a = 1.0; else discard;");
+
+    if (cc_features.opt_alpha && cc_features.opt_noise)
+        append_line(fs_buf, &fs_len,
+            "texel.a *= floor(clamp(random(vec3(floor(gl_FragCoord.xy * noise_scale), float(frame_count))) + texel.a, 0.0, 1.0));");
+
+    if (cc_features.opt_grayscale) {
+        append_line(fs_buf, &fs_len, "float intensity = (texel.r + texel.g + texel.b) / 3.0;");
+        append_line(fs_buf, &fs_len, "vec3 new_texel = vGrayscaleColor.rgb * intensity;");
+        append_line(fs_buf, &fs_len, "texel.rgb = mix(texel.rgb, new_texel, vGrayscaleColor.a);");
+    }
+
+    if (cc_features.opt_alpha) {
+        if (cc_features.opt_alpha_threshold)
+            append_line(fs_buf, &fs_len, "if (texel.a < 8.0 / 256.0) discard;");
+        if (cc_features.opt_invisible)
+            append_line(fs_buf, &fs_len, "texel.a = 0.0;");
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "outColor = texel;");
+#else
+        append_line(fs_buf, &fs_len, "gl_FragColor = texel;");
+#endif
+    } else {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "outColor = vec4(texel, 1.0);");
+#else
+        append_line(fs_buf, &fs_len, "gl_FragColor = vec4(texel, 1.0);");
+#endif
+    }
+
+    if (srgb_mode) {
+#if defined(__APPLE__) || defined(USE_OPENGLES)
+        append_line(fs_buf, &fs_len, "outColor = fromLinear(outColor);");
+#else
+        append_line(fs_buf, &fs_len, "gl_FragColor = fromLinear(gl_FragColor);");
+#endif
+    }
+
+    append_line(fs_buf, &fs_len, "}");
+
+    fs_buf[fs_len] = '\0';
+    return std::string(fs_buf, fs_len);
+}
+
+#ifdef __vita__
+#include <vitasdk.h>
+#include <stdarg.h>
+
+static void VitaTrace(const char* fmt, ...) {
+#ifndef VITAKART_TRACE
+    (void)fmt;
+#else
+    sceIoMkdir("ux0:data/vitakart64", 0777);
+
+    char buf[512];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len <= 0) {
+        return;
+    }
+    if (len >= (int)sizeof(buf)) {
+        len = (int)sizeof(buf) - 1;
+    }
+    if (buf[len - 1] != '\n' && len < (int)sizeof(buf) - 1) {
+        buf[len++] = '\n';
+    }
+
+    SceUID fd = sceIoOpen("ux0:data/vitakart64/trace.txt", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0777);
+    if (fd >= 0) {
+        sceIoWrite(fd, buf, len);
+        sceIoClose(fd);
+    }
+#endif
+}
+
+static void VitaDumpShaderSource(uint64_t shader_id0, uint64_t shader_id1, const std::string& vs_buf,
+                                 const std::string& fs_buf) {
+#ifndef VITAKART_TRACE
+    (void)shader_id0;
+    (void)shader_id1;
+    (void)vs_buf;
+    (void)fs_buf;
+#else
+    char fname[256];
+    snprintf(fname, sizeof(fname), "ux0:data/vitakart64/shader_%016llx_%016llx_vs.glsl",
+             (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+    FILE* f = fopen(fname, "wb");
+    if (f != nullptr) {
+        fwrite(vs_buf.c_str(), 1, vs_buf.size(), f);
+        fclose(f);
+    }
+
+    snprintf(fname, sizeof(fname), "ux0:data/vitakart64/shader_%016llx_%016llx_fs.glsl",
+             (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+    f = fopen(fname, "wb");
+    if (f != nullptr) {
+        fwrite(fs_buf.c_str(), 1, fs_buf.size(), f);
+        fclose(f);
+    }
+#endif
+}
+#endif
+
+ShaderProgram* GfxRenderingAPIOGL::CreateAndLoadNewShader(uint64_t shader_id0, uint64_t shader_id1) {
+    CCFeatures cc_features;
+    gfx_cc_get_features(shader_id0, shader_id1, &cc_features);
+
+    size_t num_floats = 0;
+    const std::string vs_buf = BuildVsShaderInline(cc_features, num_floats);
+    const std::string fs_buf = BuildFsShaderInline(cc_features, mCurrentFilterMode, mSrgbMode);
+
+#ifdef __vita__
+    VitaTrace("shader begin id1=%016llx id0=%016llx vs=%u fs=%u",
+              (unsigned long long)shader_id1, (unsigned long long)shader_id0,
+              (unsigned int)vs_buf.size(), (unsigned int)fs_buf.size());
+    VitaDumpShaderSource(shader_id0, shader_id1, vs_buf, fs_buf);
+#endif
+
+#if defined(__vita__)
+    const GLchar* sources[2] = { vs_buf.c_str(), fs_buf.c_str() };
+#else
+    const GLchar* sources[2] = { vs_buf.data(), fs_buf.data() };
+    const GLint  lengths[2]  = { (GLint)vs_buf.size(), (GLint)fs_buf.size() };
+#endif
+    GLint success;
+
+    GLuint shader_program = 0;
+
+    {
+        GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+#ifdef __vita__
+        VitaTrace("shader vertex source id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+#if defined(__vita__)
+        glShaderSource(vertex_shader, 1, &sources[0], nullptr);
+#else
+        glShaderSource(vertex_shader, 1, &sources[0], &lengths[0]);
+#endif
+#ifdef __vita__
+        VitaTrace("shader vertex compile id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+        glCompileShader(vertex_shader);
+        glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+#ifdef __vita__
+        VitaTrace("shader vertex status id1=%016llx id0=%016llx status=%d",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0, success);
+#endif
+        if (!success) {
+            GLint max_length = 0;
+            glGetShaderiv(vertex_shader, GL_INFO_LOG_LENGTH, &max_length);
+            char error_log[1024];
+            glGetShaderInfoLog(vertex_shader, max_length, &max_length, &error_log[0]);
+            fprintf(stderr, "Vertex shader compilation failed:\n%s\n", error_log);
+            abort();
+        }
+
+        GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+#ifdef __vita__
+        VitaTrace("shader fragment source id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+#if defined(__vita__)
+        glShaderSource(fragment_shader, 1, &sources[1], nullptr);
+#else
+        glShaderSource(fragment_shader, 1, &sources[1], &lengths[1]);
+#endif
+#ifdef __vita__
+        VitaTrace("shader fragment compile id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+        glCompileShader(fragment_shader);
+        glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+#ifdef __vita__
+        VitaTrace("shader fragment status id1=%016llx id0=%016llx status=%d",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0, success);
+#endif
+        if (!success) {
+            GLint max_length = 0;
+            glGetShaderiv(fragment_shader, GL_INFO_LOG_LENGTH, &max_length);
+            char error_log[1024];
+            glGetShaderInfoLog(fragment_shader, max_length, &max_length, &error_log[0]);
+            fprintf(stderr, "Fragment shader compilation failed:\n%s\n", error_log);
+            abort();
+        }
+
+        shader_program = glCreateProgram();
+        glAttachShader(shader_program, vertex_shader);
+        glAttachShader(shader_program, fragment_shader);
+#ifdef __vita__
+        VitaTrace("shader link id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+        glLinkProgram(shader_program);
+#ifdef __vita__
+        VitaTrace("shader linked id1=%016llx id0=%016llx",
+                  (unsigned long long)shader_id1, (unsigned long long)shader_id0);
+#endif
+    }
+
+    size_t cnt = 0;
+
+    struct ShaderProgram* prg = &mShaderProgramPool[std::make_pair(shader_id0, shader_id1)];
+    prg->attribLocations[cnt] = glGetAttribLocation(shader_program, "aVtxPos");
+    prg->attribSizes[cnt] = 4;
+    ++cnt;
+
+    for (int i = 0; i < 2; i++) {
+        if (cc_features.usedTextures[i]) {
+            char name[32];
+            snprintf(name, sizeof(name), "aTexCoord%d", i);
+            prg->attribLocations[cnt] = glGetAttribLocation(shader_program, name);
+            prg->attribSizes[cnt] = 2;
+            ++cnt;
+
+            for (int j = 0; j < 2; j++) {
+                if (cc_features.clamp[i][j]) {
+                    snprintf(name, sizeof(name), "aTexClamp%s%d", j == 0 ? "S" : "T", i);
+                    prg->attribLocations[cnt] = glGetAttribLocation(shader_program, name);
+                    prg->attribSizes[cnt] = 1;
+                    ++cnt;
+                }
+            }
+        }
+    }
+
+    if (cc_features.opt_fog) {
+        prg->attribLocations[cnt] = glGetAttribLocation(shader_program, "aFog");
+        prg->attribSizes[cnt] = 4;
+        ++cnt;
+    }
+
+    if (cc_features.opt_grayscale) {
+        prg->attribLocations[cnt] = glGetAttribLocation(shader_program, "aGrayscaleColor");
+        prg->attribSizes[cnt] = 4;
+        ++cnt;
+    }
+
+    for (int i = 0; i < cc_features.numInputs; i++) {
+        char name[16];
+        snprintf(name, sizeof(name), "aInput%d", i + 1);
+        prg->attribLocations[cnt] = glGetAttribLocation(shader_program, name);
+        prg->attribSizes[cnt] = cc_features.opt_alpha ? 4 : 3;
+        ++cnt;
+    }
+
+    prg->openglProgramId = shader_program;
+    prg->numInputs = cc_features.numInputs;
+    prg->usedTextures[0] = cc_features.usedTextures[0];
+    prg->usedTextures[1] = cc_features.usedTextures[1];
+    prg->usedTextures[2] = cc_features.used_masks[0];
+    prg->usedTextures[3] = cc_features.used_masks[1];
+    prg->usedTextures[4] = cc_features.used_blend[0];
+    prg->usedTextures[5] = cc_features.used_blend[1];
+    prg->numFloats = num_floats;
+    prg->numAttribs = cnt;
+
+    prg->frameCountLocation = glGetUniformLocation(shader_program, "frame_count");
+    prg->noiseScaleLocation = glGetUniformLocation(shader_program, "noise_scale");
+
+    prg->texture_width_location     = -1;
+    prg->texture_height_location    = -1;
+    prg->texture_filtering_location = -1;
+
+    LoadShader(prg);
+
+    if (cc_features.usedTextures[0]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTex0");
+        glUniform1i(sampler_location, 0);
+    }
+    if (cc_features.usedTextures[1]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTex1");
+        glUniform1i(sampler_location, 1);
+    }
+    if (cc_features.used_masks[0]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTexMask0");
+        glUniform1i(sampler_location, 2);
+    }
+    if (cc_features.used_masks[1]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTexMask1");
+        glUniform1i(sampler_location, 3);
+    }
+    if (cc_features.used_blend[0]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTexBlend0");
+        glUniform1i(sampler_location, 4);
+    }
+    if (cc_features.used_blend[1]) {
+        GLint sampler_location = glGetUniformLocation(shader_program, "uTexBlend1");
+        glUniform1i(sampler_location, 5);
+    }
+
+    return prg;
+}
+
+struct ShaderProgram* GfxRenderingAPIOGL::LookupShader(uint64_t shader_id0, uint64_t shader_id1) {
+    auto it = mShaderProgramPool.find(std::make_pair(shader_id0, shader_id1));
+    return it == mShaderProgramPool.end() ? nullptr : &it->second;
+}
+
+void GfxRenderingAPIOGL::ShaderGetInfo(struct ShaderProgram* prg, uint8_t* numInputs, bool usedTextures[2]) {
+    *numInputs = prg->numInputs;
+    usedTextures[0] = prg->usedTextures[0];
+    usedTextures[1] = prg->usedTextures[1];
+}
+
+void GfxRenderingAPIOGL::ReserveTextureSlots(uint32_t count) {
+#ifdef __vita__
+    mSamplerStates.reserve(count);
+    mGeneratedTextureIds.reserve(count);
+    if (count <= mGeneratedTextureSlots) {
+        return;
+    }
+
+    const uint32_t textureIdsToGenerate = count - mGeneratedTextureSlots;
+    const size_t oldSize = mReservedTextureIds.size();
+    mReservedTextureIds.resize(oldSize + textureIdsToGenerate, 0);
+    glGenTextures(static_cast<GLsizei>(textureIdsToGenerate), mReservedTextureIds.data() + oldSize);
+    for (uint32_t i = 0; i < textureIdsToGenerate; i++) {
+        mGeneratedTextureIds.insert(mReservedTextureIds[oldSize + i]);
+    }
+    mGeneratedTextureSlots = static_cast<uint32_t>(mGeneratedTextureIds.size());
+#else
+    (void)count;
+#endif
+}
+
+GLuint GfxRenderingAPIOGL::NewTexture() {
+    GLuint ret;
+    if (!mReservedTextureIds.empty()) {
+        ret = mReservedTextureIds.back();
+        mReservedTextureIds.pop_back();
+    } else {
+#ifdef __vita__
+        VitaTrace("NewTexture glGenTextures begin\n");
+#endif
+        glGenTextures(1, &ret);
+#ifdef __vita__
+        mGeneratedTextureIds.insert(ret);
+        mGeneratedTextureSlots = static_cast<uint32_t>(mGeneratedTextureIds.size());
+#endif
+#ifdef __vita__
+        VitaTrace("NewTexture glGenTextures end id=%u\n", ret);
+#endif
+    }
+    return ret;
+}
+
+void GfxRenderingAPIOGL::DeleteTexture(uint32_t texID) {
+    mSamplerStates.erase(texID);
+#ifdef __vita__
+    mReservedTextureIds.erase(std::remove(mReservedTextureIds.begin(), mReservedTextureIds.end(), texID),
+                              mReservedTextureIds.end());
+    if (mGeneratedTextureIds.erase(texID) > 0) {
+        mGeneratedTextureSlots = static_cast<uint32_t>(mGeneratedTextureIds.size());
+    }
+    for (size_t i = 0; i < std::size(mLastBoundTextures); i++) {
+        if (mLastBoundTextures[i] == texID) {
+            mLastBoundTextures[i] = static_cast<GLuint>(~0U);
+        }
+        if (mCurrentTextureIds[i] == texID) {
+            mCurrentTextureIds[i] = 0;
+        }
+    }
+#endif
+    glDeleteTextures(1, &texID);
+}
+
+void GfxRenderingAPIOGL::SelectTexture(int tile, GLuint texture_id) {
+    if (mLastActiveTexture != tile) {
+        mLastActiveTexture = tile;
+#ifdef __vita__
+        VitaTrace("SelectTexture glActiveTexture begin tile=%d texture=%u\n", tile, texture_id);
+#endif
+        glActiveTexture(GL_TEXTURE0 + tile);
+#ifdef __vita__
+        VitaTrace("SelectTexture glActiveTexture end tile=%d texture=%u\n", tile, texture_id);
+#endif
+    }
+    if (mLastBoundTextures[tile] != texture_id) {
+        mLastBoundTextures[tile] = texture_id;
+#ifdef __vita__
+        VitaTrace("SelectTexture glBindTexture begin tile=%d texture=%u\n", tile, texture_id);
+#endif
+        glBindTexture(GL_TEXTURE_2D, texture_id);
+#ifdef __vita__
+        VitaTrace("SelectTexture glBindTexture end tile=%d texture=%u\n", tile, texture_id);
+#endif
+    }
+    mCurrentTextureIds[tile] = texture_id;
+    mCurrentTile = tile;
+}
+
+void GfxRenderingAPIOGL::UploadTexture(const uint8_t* rgba32_buf, uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0) {
+        return;
+    }
+#ifdef __vita__
+    VitaTrace("UploadTexture glTexImage2D begin width=%u height=%u ptr=%p\n", width, height, rgba32_buf);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba32_buf);
+    VitaTrace("UploadTexture glTexImage2D end width=%u height=%u\n", width, height);
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba32_buf);
+#endif
+}
+
+bool GfxRenderingAPIOGL::UploadTextureRgba16(const uint16_t* rgba16Buf, uint32_t width, uint32_t height) {
+#ifdef __vita__
+    if (rgba16Buf == nullptr || width == 0 || height == 0) {
+        return false;
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, rgba16Buf);
+    return true;
+#else
+    (void)rgba16Buf;
+    (void)width;
+    (void)height;
+    return false;
+#endif
+}
+
+void GfxRenderingAPIOGL::InvalidateTextureBindings() {
+    mLastActiveTexture = -1;
+    for (auto& textureId : mLastBoundTextures) {
+        textureId = static_cast<GLuint>(~0U);
+    }
+}
+
+#ifdef USE_OPENGLES
+#define GL_MIRROR_CLAMP_TO_EDGE 0x8743
+#endif
+
+static uint32_t gfx_cm_to_opengl(uint32_t val) {
+    switch (val) {
+        case G_TX_NOMIRROR | G_TX_CLAMP:
+            return GL_CLAMP_TO_EDGE;
+        case G_TX_MIRROR | G_TX_WRAP:
+            return GL_MIRRORED_REPEAT;
+        case G_TX_MIRROR | G_TX_CLAMP:
+            return GL_MIRROR_CLAMP_TO_EDGE;
+        case G_TX_NOMIRROR | G_TX_WRAP:
+            return GL_REPEAT;
+    }
+    return 0;
+}
+
+void GfxRenderingAPIOGL::SetSamplerParameters(int tile, bool linear_filter, uint32_t cms, uint32_t cmt) {
+    if (mLastActiveTexture != tile) {
+        mLastActiveTexture = tile;
+#ifdef __vita__
+        VitaTrace("SetSamplerParameters glActiveTexture begin tile=%d\n", tile);
+#endif
+        glActiveTexture(GL_TEXTURE0 + tile);
+#ifdef __vita__
+        VitaTrace("SetSamplerParameters glActiveTexture end tile=%d\n", tile);
+#endif
+    }
+    const GLint filter = linear_filter && mCurrentFilterMode == FILTER_LINEAR ? GL_LINEAR : GL_NEAREST;
+    const GLint wrapS = static_cast<GLint>(gfx_cm_to_opengl(cms));
+    const GLint wrapT = static_cast<GLint>(gfx_cm_to_opengl(cmt));
+    SamplerStateOGL& samplerState = mSamplerStates[mCurrentTextureIds[tile]];
+#ifdef __vita__
+    VitaTrace("SetSamplerParameters state tile=%d texture=%u filter=%d wrapS=%d wrapT=%d\n", tile,
+              mCurrentTextureIds[tile], filter, wrapS, wrapT);
+#endif
+    if (samplerState.filter != filter) {
+        samplerState.filter = filter;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    }
+    if (samplerState.wrapS != wrapS) {
+        samplerState.wrapS = wrapS;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+    }
+    if (samplerState.wrapT != wrapT) {
+        samplerState.wrapT = wrapT;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
+    }
+#ifdef __vita__
+    VitaTrace("SetSamplerParameters glTexParameteri end tile=%d\n", tile);
+#endif
+}
+
+void GfxRenderingAPIOGL::SetDepthTestAndMask(bool depth_test, bool z_upd) {
+    mCurrentDepthTest = depth_test;
+    mCurrentDepthMask = z_upd;
+}
+
+void GfxRenderingAPIOGL::SetZmodeDecal(bool zmode_decal) {
+    mCurrentZmodeDecal = zmode_decal;
+}
+
+void GfxRenderingAPIOGL::SetViewport(int x, int y, int width, int height) {
+#ifdef __vita__
+    if (x == 0 && width >= 958 && width < 960) {
+        width = 960;
+    }
+    if (y == 0 && height >= 542 && height < 544) {
+        height = 544;
+    }
+#endif
+    glViewport(x, y, width, height);
+}
+
+void GfxRenderingAPIOGL::SetScissor(int x, int y, int width, int height) {
+#ifdef __vita__
+    if (x == 0 && width >= 958 && width < 960) {
+        width = 960;
+    }
+    if (y == 0 && height >= 542 && height < 544) {
+        height = 544;
+    }
+#endif
+    glScissor(x, y, width, height);
+#ifdef __vita__
+    glEnable(GL_SCISSOR_TEST);
+    mLastScissorEnabled = 1;
+#endif
+}
+
+void GfxRenderingAPIOGL::SetUseAlpha(bool use_alpha) {
+    int8_t val = use_alpha ? 1 : 0;
+    if (mLastBlendEnabled != val) {
+        mLastBlendEnabled = val;
+        if (use_alpha) {
+            glEnable(GL_BLEND);
+        } else {
+            glDisable(GL_BLEND);
+        }
+    }
+}
+
+void GfxRenderingAPIOGL::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
+    if (mCurrentDepthTest != mLastDepthTest || mCurrentDepthMask != mLastDepthMask) {
+        mLastDepthTest = mCurrentDepthTest;
+        mLastDepthMask = mCurrentDepthMask;
+
+        if (mCurrentDepthTest || mLastDepthMask) {
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(mLastDepthMask ? GL_TRUE : GL_FALSE);
+            glDepthFunc(mCurrentDepthTest ? (mCurrentZmodeDecal ? GL_LEQUAL : GL_LESS) : GL_ALWAYS);
+        } else {
+            glDisable(GL_DEPTH_TEST);
+        }
+    }
+
+    if (mCurrentZmodeDecal != mLastZmodeDecal) {
+        mLastZmodeDecal = mCurrentZmodeDecal;
+        if (mCurrentZmodeDecal) {
+            // SSDB = SlopeScaledDepthBias 120 leads to -2 at 240p which is the same as N64 mode which has very little
+            // fighting
+            const int n64modeFactor = 120;
+            const int noVanishFactor = 100;
+            GLfloat SSDB = -2;
+            switch (Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_Z_FIGHTING_MODE, 0)) {
+                // scaled z-fighting (N64 mode like)
+                case 1:
+                    if (mFrameBuffers.size() >
+                        mCurrentFrameBuffer) { // safety check for vector size can probably be removed
+                        SSDB = -1.0f * (GLfloat)mFrameBuffers[mCurrentFrameBuffer].height / n64modeFactor;
+                    }
+                    break;
+                // no vanishing paths
+                case 2:
+                    if (mFrameBuffers.size() >
+                        mCurrentFrameBuffer) { // safety check for vector size can probably be removed
+                        SSDB = -1.0f * (GLfloat)mFrameBuffers[mCurrentFrameBuffer].height / noVanishFactor;
+                    }
+                    break;
+                // disabled
+                case 0:
+                default:
+                    SSDB = -2;
+            }
+            glPolygonOffset(SSDB, -2);
+            glEnable(GL_POLYGON_OFFSET_FILL);
+        } else {
+            glPolygonOffset(0, 0);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+        }
+    }
+
+    SetPerDrawUniforms();
+
+#ifdef __vita__
+    vglBufferData(GL_ARRAY_BUFFER, buf_vbo);
+#else
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * buf_vbo_len, buf_vbo, GL_STREAM_DRAW);
+#endif
+    glDrawArrays(GL_TRIANGLES, 0, 3 * buf_vbo_num_tris);
+}
+
+void GfxRenderingAPIOGL::Init() {
+#if !defined(__linux__) && !defined(__vita__) && !defined(__OpenBSD__)
+    glewInit();
+#endif
+
+    glGenBuffers(1, &mOpenglVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, mOpenglVbo);
+
+#if defined(__APPLE__) || (defined(USE_OPENGLES) && !defined(__vita__))
+    glGenVertexArrays(1, &mOpenglVao);
+    glBindVertexArray(mOpenglVao);
+#endif
+
+#if !defined(USE_OPENGLES) && !defined(__vita__)
+    glEnable(GL_DEPTH_CLAMP);
+#endif
+    glDepthFunc(GL_LEQUAL);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    mFrameBuffers.resize(1); // for the default screen buffer
+
+    glGenRenderbuffers(1, &mPixelDepthRb);
+    glBindRenderbuffer(GL_RENDERBUFFER, mPixelDepthRb);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1, 1);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glGenFramebuffers(1, &mPixelDepthFb);
+    glBindFramebuffer(GL_FRAMEBUFFER, mPixelDepthFb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, mPixelDepthRb);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    mPixelDepthRbSize = 1;
+#ifdef __vita__
+    mMaxMsaaLevel = 1;
+#else
+    glGetIntegerv(GL_MAX_SAMPLES, &mMaxMsaaLevel);
+#endif
+}
+
+void GfxRenderingAPIOGL::OnResize() {
+}
+
+void GfxRenderingAPIOGL::StartFrame() {
+    mFrameCount++;
+}
+
+void GfxRenderingAPIOGL::EndFrame() {
+#ifndef __vita__
+    glFlush();
+#endif
+}
+
+void GfxRenderingAPIOGL::FinishRender() {
+}
+
+int GfxRenderingAPIOGL::CreateFramebuffer() {
+    GLuint clrbuf;
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenTextures begin\n");
+#endif
+    glGenTextures(1, &clrbuf);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenTextures end clrbuf=%u\n", clrbuf);
+    VitaTrace("CreateFramebuffer glBindTexture begin clrbuf=%u\n", clrbuf);
+#endif
+    glBindTexture(GL_TEXTURE_2D, clrbuf);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glBindTexture end clrbuf=%u\n", clrbuf);
+    VitaTrace("CreateFramebuffer glTexImage2D begin clrbuf=%u\n", clrbuf);
+#endif
+#ifdef __vita__
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+#endif
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glTexImage2D end clrbuf=%u\n", clrbuf);
+    VitaTrace("CreateFramebuffer glTexParameteri begin clrbuf=%u\n", clrbuf);
+#endif
+#ifdef __vita__
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#else
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#endif
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glTexParameteri end clrbuf=%u\n", clrbuf);
+#endif
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLuint clrbufMsaa;
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenRenderbuffers color begin\n");
+#endif
+    glGenRenderbuffers(1, &clrbufMsaa);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenRenderbuffers color end clrbufMsaa=%u\n", clrbufMsaa);
+#endif
+
+    GLuint rbo;
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenRenderbuffers depth begin\n");
+#endif
+    glGenRenderbuffers(1, &rbo);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenRenderbuffers depth end rbo=%u\n", rbo);
+    VitaTrace("CreateFramebuffer glBindRenderbuffer begin rbo=%u\n", rbo);
+#endif
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glBindRenderbuffer end rbo=%u\n", rbo);
+    VitaTrace("CreateFramebuffer glRenderbufferStorage begin rbo=%u\n", rbo);
+#endif
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1, 1);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glRenderbufferStorage end rbo=%u\n", rbo);
+#endif
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    GLuint fbo;
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenFramebuffers begin\n");
+#endif
+    glGenFramebuffers(1, &fbo);
+#ifdef __vita__
+    VitaTrace("CreateFramebuffer glGenFramebuffers end fbo=%u\n", fbo);
+#endif
+
+    size_t i = mFrameBuffers.size();
+    mFrameBuffers.resize(i + 1);
+
+    mFrameBuffers[i].fbo = fbo;
+    mFrameBuffers[i].clrbuf = clrbuf;
+    mFrameBuffers[i].clrbufMsaa = clrbufMsaa;
+    mFrameBuffers[i].rbo = rbo;
+
+    return i;
+}
+
+void GfxRenderingAPIOGL::UpdateFramebufferParameters(int fb_id, uint32_t width, uint32_t height, uint32_t msaa_level,
+                                                     bool opengl_invertY, bool render_target, bool has_depth_buffer,
+                                                     bool can_extract_depth) {
+    FramebufferOGL& fb = mFrameBuffers[fb_id];
+
+    width = std::max(width, 1U);
+    height = std::max(height, 1U);
+#ifdef __vita__
+    msaa_level = 1;
+#else
+    msaa_level = std::min(msaa_level, (uint32_t)mMaxMsaaLevel);
+#endif
+
+#ifdef __vita__
+    VitaTrace("UpdateFramebufferParameters begin fb=%d width=%u height=%u msaa=%u render_target=%d depth=%d\n", fb_id,
+              width, height, msaa_level, render_target, has_depth_buffer);
+    VitaTrace("UpdateFramebufferParameters glBindFramebuffer begin fb=%d fbo=%u\n", fb_id, fb.fbo);
+#endif
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.fbo);
+#ifdef __vita__
+    VitaTrace("UpdateFramebufferParameters glBindFramebuffer end fb=%d fbo=%u\n", fb_id, fb.fbo);
+#endif
+
+    if (fb_id != 0) {
+        if (fb.width != width || fb.height != height || fb.msaa_level != msaa_level) {
+            if (msaa_level <= 1) {
+#ifdef __vita__
+                VitaTrace("UpdateFramebufferParameters glBindTexture begin fb=%d clrbuf=%u\n", fb_id, fb.clrbuf);
+#endif
+                glBindTexture(GL_TEXTURE_2D, fb.clrbuf);
+#ifdef __vita__
+                VitaTrace("UpdateFramebufferParameters glBindTexture end fb=%d clrbuf=%u\n", fb_id, fb.clrbuf);
+                VitaTrace("UpdateFramebufferParameters glTexImage2D begin fb=%d width=%u height=%u\n", fb_id, width,
+                          height);
+#endif
+#ifdef __vita__
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+#else
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+#endif
+#ifdef __vita__
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#else
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#endif
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#ifdef __vita__
+                VitaTrace("UpdateFramebufferParameters glTexImage2D end fb=%d\n", fb_id);
+#endif
+                glBindTexture(GL_TEXTURE_2D, 0);
+#ifdef __vita__
+                VitaTrace("UpdateFramebufferParameters glFramebufferTexture2D begin fb=%d clrbuf=%u\n", fb_id,
+                          fb.clrbuf);
+#endif
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fb.clrbuf, 0);
+#ifdef __vita__
+                VitaTrace("UpdateFramebufferParameters glFramebufferTexture2D end fb=%d\n", fb_id);
+#endif
+            } else {
+#ifndef __vita__
+                glBindRenderbuffer(GL_RENDERBUFFER, fb.clrbufMsaa);
+                glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa_level, GL_RGB8, width, height);
+                glBindRenderbuffer(GL_RENDERBUFFER, 0);
+                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, fb.clrbufMsaa);
+#endif
+            }
+        }
+
+        if (has_depth_buffer &&
+            (fb.width != width || fb.height != height || fb.msaa_level != msaa_level || !fb.has_depth_buffer)) {
+            glBindRenderbuffer(GL_RENDERBUFFER, fb.rbo);
+            if (msaa_level <= 1) {
+                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+            } else {
+#ifndef __vita__
+                glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa_level, GL_DEPTH24_STENCIL8, width, height);
+#endif
+            }
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        }
+
+        if (!fb.has_depth_buffer && has_depth_buffer) {
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fb.rbo);
+        } else if (fb.has_depth_buffer && !has_depth_buffer) {
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
+        }
+    }
+
+    fb.width = width;
+    fb.height = height;
+    fb.has_depth_buffer = has_depth_buffer;
+    fb.msaa_level = msaa_level;
+    fb.invertY = opengl_invertY;
+}
+
+void GfxRenderingAPIOGL::StartDrawToFramebuffer(int fb_id, float noise_scale) {
+    FramebufferOGL& fb = mFrameBuffers[fb_id];
+
+    if (noise_scale != 0.0f) {
+        mCurrentNoiseScale = 1.0f / noise_scale;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, fb.fbo);
+    mCurrentFrameBuffer = fb_id;
+}
+
+void GfxRenderingAPIOGL::ClearFramebuffer(bool color, bool depth) {
+#ifdef __vita__
+    const FramebufferOGL& fb = mFrameBuffers[mCurrentFrameBuffer];
+    glViewport(0, 0, fb.width, fb.height);
+    glScissor(0, 0, fb.width, fb.height);
+    glDisable(GL_SCISSOR_TEST);
+    mLastScissorEnabled = 0;
+#else
+    if (mLastScissorEnabled != 0) {
+        mLastScissorEnabled = 0;
+        glDisable(GL_SCISSOR_TEST);
+    }
+#endif
+    glDepthMask(GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear((color ? GL_COLOR_BUFFER_BIT : 0) | (depth ? GL_DEPTH_BUFFER_BIT : 0));
+    glDepthMask(mCurrentDepthMask ? GL_TRUE : GL_FALSE);
+#ifdef __vita__
+    glScissor(0, 0, fb.width, fb.height);
+    glEnable(GL_SCISSOR_TEST);
+    mLastScissorEnabled = 1;
+#else
+    if (mLastScissorEnabled != 1) {
+        mLastScissorEnabled = 1;
+        glEnable(GL_SCISSOR_TEST);
+    }
+#endif
+}
+
+void GfxRenderingAPIOGL::ResolveMSAAColorBuffer(int fb_id_target, int fb_id_source) {
+    FramebufferOGL& fb_dst = mFrameBuffers[fb_id_target];
+    FramebufferOGL& fb_src = mFrameBuffers[fb_id_source];
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_dst.fbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_src.fbo);
+
+    // Disabled for blit
+    if (mLastScissorEnabled != 0) {
+        mLastScissorEnabled = 0;
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    glBlitFramebuffer(0, 0, fb_src.width, fb_src.height, 0, 0, fb_dst.width, fb_dst.height, GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, mCurrentFrameBuffer);
+
+    if (mLastScissorEnabled != 1) {
+        mLastScissorEnabled = 1;
+        glEnable(GL_SCISSOR_TEST);
+    }
+}
+
+void* GfxRenderingAPIOGL::GetFramebufferTextureId(int fb_id) {
+    return (void*)(uintptr_t)mFrameBuffers[fb_id].clrbuf;
+}
+
+void GfxRenderingAPIOGL::SelectTextureFb(int fb_id) {
+    // glDisable(GL_DEPTH_TEST);
+    int tile = 0;
+    SelectTexture(tile, mFrameBuffers[fb_id].clrbuf);
+}
+
+void GfxRenderingAPIOGL::CopyFramebuffer(int fb_dst_id, int fb_src_id, int srcX0, int srcY0, int srcX1, int srcY1,
+                                         int dstX0, int dstY0, int dstX1, int dstY1) {
+    if (fb_dst_id >= (int)mFrameBuffers.size() || fb_src_id >= (int)mFrameBuffers.size()) {
+        return;
+    }
+
+    FramebufferOGL src = mFrameBuffers[fb_src_id];
+    const FramebufferOGL& dst = mFrameBuffers[fb_dst_id];
+
+    // Adjust y values for non-inverted source frame buffers because opengl uses bottom left for origin
+    if (!src.invertY) {
+        int temp = srcY1 - srcY0;
+        srcY1 = src.height - srcY0;
+        srcY0 = srcY1 - temp;
+    }
+
+    // Flip the y values
+    if (src.invertY != dst.invertY) {
+        std::swap(srcY0, srcY1);
+    }
+
+#ifdef __vita__
+    if (fb_dst_id == 0) {
+        if (dstX0 == 0 && dstX1 >= 958 && dstX1 < 960) {
+            dstX1 = 960;
+        }
+        if (dstY0 == 0 && dstY1 >= 542 && dstY1 < 544) {
+            dstY1 = 544;
+        }
+    }
+#endif
+
+    // Disabled for blit
+    if (mLastScissorEnabled != 0) {
+        mLastScissorEnabled = 0;
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+#ifndef __vita__
+    if (src.height != dst.height && src.width != dst.width && src.msaa_level > 1) {
+        // Start with the main buffer (0) as the msaa resolved buffer
+        int fb_resolve_id = 0;
+        FramebufferOGL fb_resolve = mFrameBuffers[fb_resolve_id];
+
+        // If the size doesn't match our source, then we need to use our separate color msaa resolved buffer (2)
+        if (fb_resolve.height != src.height || fb_resolve.width != src.width) {
+            fb_resolve_id = 2;
+            fb_resolve = mFrameBuffers[fb_resolve_id];
+        }
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_resolve.fbo);
+
+        glBlitFramebuffer(0, 0, src.width, src.height, 0, 0, src.width, src.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        // Switch source buffer to the resolved sample
+        fb_src_id = fb_resolve_id;
+        src = fb_resolve;
+    }
+#endif
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo);
+
+    if (fb_src_id == 0) {
+        glReadBuffer(GL_BACK);
+    } else {
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+    }
+    glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, mFrameBuffers[mCurrentFrameBuffer].fbo);
+
+    glReadBuffer(GL_BACK);
+
+    if (mLastScissorEnabled != 1) {
+        mLastScissorEnabled = 1;
+        glEnable(GL_SCISSOR_TEST);
+    }
+}
+
+void GfxRenderingAPIOGL::ReadFramebufferToCPU(int fb_id, uint32_t width, uint32_t height, uint16_t* rgba16_buf) {
+    if (fb_id >= (int)mFrameBuffers.size()) {
+        return;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, mFrameBuffers[fb_id].fbo);
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, rgba16_buf);
+    glBindFramebuffer(GL_FRAMEBUFFER, mFrameBuffers[mCurrentFrameBuffer].fbo);
+}
+
+std::unordered_map<std::pair<float, float>, uint16_t, hash_pair_ff>
+GfxRenderingAPIOGL::GetPixelDepth(int fb_id, const std::set<std::pair<float, float>>& coordinates) {
+    std::unordered_map<std::pair<float, float>, uint16_t, hash_pair_ff> res;
+#ifdef __vita__
+    return res;
+#endif
+
+    FramebufferOGL& fb = mFrameBuffers[fb_id];
+
+    // When looking up one value and the framebuffer is single-sampled, we can read pixels directly
+    // Otherwise we need to blit first to a new buffer then read it
+    if (coordinates.size() == 1 && fb.msaa_level <= 1) {
+        uint32_t depth_stencil_value;
+        glBindFramebuffer(GL_FRAMEBUFFER, fb.fbo);
+        int x = coordinates.begin()->first;
+        int y = coordinates.begin()->second;
+#if !defined(USE_OPENGLES) && !defined(__vita__)
+        glReadPixels(x, fb.invertY ? fb.height - y : y, 1, 1, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8,
+                     &depth_stencil_value);
+#endif
+        res.emplace(*coordinates.begin(), (depth_stencil_value >> 18) << 2);
+    } else {
+        if (mPixelDepthRbSize < coordinates.size()) {
+            // Resizing a renderbuffer seems broken with Intel's driver, so recreate one instead.
+            glBindFramebuffer(GL_FRAMEBUFFER, mPixelDepthFb);
+            glDeleteRenderbuffers(1, &mPixelDepthRb);
+            glGenRenderbuffers(1, &mPixelDepthRb);
+            glBindRenderbuffer(GL_RENDERBUFFER, mPixelDepthRb);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, coordinates.size(), 1);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, mPixelDepthRb);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+            mPixelDepthRbSize = coordinates.size();
+        }
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fb.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mPixelDepthFb);
+
+        glDisable(GL_SCISSOR_TEST); // needed for the blit operation
+
+        {
+            size_t i = 0;
+            for (const auto& coord : coordinates) {
+                int x = coord.first;
+                int y = coord.second;
+                if (fb.invertY) {
+                    y = fb.height - y;
+                }
+                glBlitFramebuffer(x, y, x + 1, y + 1, i, 0, i + 1, 1, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+                                  GL_NEAREST);
+                ++i;
+            }
+        }
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, mPixelDepthFb);
+        std::vector<uint32_t> depth_stencil_values(coordinates.size());
+#if !defined(USE_OPENGLES) && !defined(__vita__)
+        glReadPixels(0, 0, coordinates.size(), 1, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, depth_stencil_values.data());
+#endif
+        {
+            size_t i = 0;
+            for (const auto& coord : coordinates) {
+                res.emplace(coord, (depth_stencil_values[i++] >> 18) << 2);
+            }
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, mCurrentFrameBuffer);
+
+    return res;
+}
+
+void GfxRenderingAPIOGL::SetTextureFilter(FilteringMode mode) {
+#ifdef __vita__
+    // Vita Kart has one release rendering policy. Do not let config/menu
+    // changes switch sampler policy and evict the warmed texture cache.
+    mode = FILTER_LINEAR;
+#endif
+    if (mCurrentFilterMode == mode) {
+        return;
+    }
+    gfx_texture_cache_clear();
+    mSamplerStates.clear();
+    mCurrentFilterMode = mode;
+}
+
+FilteringMode GfxRenderingAPIOGL::GetTextureFilter() {
+    return mCurrentFilterMode;
+}
+
+void GfxRenderingAPIOGL::SetSrgbMode() {
+    mSrgbMode = true;
+}
+
+ImTextureID GfxRenderingAPIOGL::GetTextureById(int id) {
+    return reinterpret_cast<ImTextureID>(id);
+}
+} // namespace Fast
+#endif
+
+#pragma clang diagnostic pop

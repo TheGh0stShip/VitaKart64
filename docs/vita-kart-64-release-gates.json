@@ -1,0 +1,78 @@
+{
+  "product": "Vita Kart 64",
+  "platform": "PS Vita hardware",
+  "supervised_only": true,
+  "release_build_command": "VITAKART_SUPERVISED_HARDWARE_RUN=1 tools/vita_prepare_supervised_release.sh",
+  "launch_policy": "install_stopped_then_manual_launch",
+  "target": {
+    "fps": 60,
+    "arm_mhz": 500,
+    "bus_mhz": 222,
+    "gpu_mhz": 222,
+    "xbar_mhz": 166,
+    "fixed_render_scale": "1/2",
+    "dynamic_performance_profiles": false
+  },
+  "required_build_policy": {
+    "full_ci_tlut_coverage": true,
+    "texture_pair_limit": 0,
+    "texture_miss_log_release": false,
+    "frame_hitch_log_release": false,
+    "middleware_splash": "disabled",
+    "brand_assets_generated": true,
+    "brand_asset_manifest": true
+  },
+  "required_runtime_gates": [
+    {
+      "id": "loading_screen",
+      "evidence": "manual_hardware_observation",
+      "pass": "custom loading screen appears instead of vitaGL splash and reports phase, elapsed time, estimated remaining time, resources, GPU textures, shader warmup, audio warmup, and cache status"
+    },
+    {
+      "id": "audio",
+      "evidence": "manual_hardware_observation",
+      "pass": "audio is present from boot/menu and remains present during race and post-race screens, with preload summary showing warmed bank and sequence counts"
+    },
+    {
+      "id": "race_start_hitch",
+      "evidence": "manual_hardware_observation_or_frame_hitch_log",
+      "pass": "first race start has no visible resource, audio, texture, or shader hitch after shader and CI/TLUT preload summaries are present"
+    },
+    {
+      "id": "race_fps",
+      "evidence": "manual_hardware_observation",
+      "pass": "raceplay remains locked at 60 fps on configured PS Vita OC profile"
+    },
+    {
+      "id": "post_race_scoreboard",
+      "evidence": "manual_hardware_observation_or_frame_hitch_log",
+      "pass": "post-race score screen is smooth on first entry"
+    },
+    {
+      "id": "presentation_edges",
+      "evidence": "manual_hardware_observation",
+      "pass": "no right-edge or bottom-edge retained-frame artifact, grey bar, or reflected strip"
+    },
+    {
+      "id": "visual_quality",
+      "evidence": "manual_hardware_observation",
+      "pass": "image and text quality are acceptable at fixed 1/2 render scale without sacrificing locked 60 fps"
+    },
+    {
+      "id": "warmup_persistence",
+      "evidence": "manual_hardware_observation_and_preload_marker",
+      "pass": "after closing and reopening the app on PS Vita hardware, preload-ready marker evidence exists and the second launch does not reintroduce first-exposure shader/resource hitches"
+    },
+    {
+      "id": "brand_identity",
+      "evidence": "manual_hardware_observation_and_release_evidence",
+      "pass": "Vita Kart 64 icon, LiveArea/startup art, and loading-card identity are packaged and visible without official-looking Nintendo/Sony branding"
+    }
+  ],
+  "diagnostic_order_if_failed": [
+    "collect preload-summary.txt and shader-warmup-summary.txt from the supervised run",
+    "if there are visible hitches without texture misses, run exactly one supervised frame-hitch diagnostic build",
+    "if texture misses are proven, merge only supervised hardware-discovered pairs into the persistent overlay",
+    "if presentation artifacts return, freeze performance changes and fix viewport/scissor/presentation policy first"
+  ]
+}

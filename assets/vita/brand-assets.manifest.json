@@ -1,0 +1,50 @@
+{
+  "assets": [
+    {
+      "path": "assets/vita/loading.png",
+      "present": true,
+      "sha256": "139f66522358d6c7f30267df9b16b0a6f7e3b92cb1cb518cc385ff5462d3cbf9",
+      "size": 51264
+    },
+    {
+      "path": "livearea/startup-vk64.png",
+      "present": true,
+      "sha256": "c2023678611655d9c9d934989fd8ed3b7134e1719532a88cfcb15a5be62bcbb4",
+      "size": 8386
+    },
+    {
+      "path": "livearea/icon0.png",
+      "present": true,
+      "sha256": "0ab9e4c24489f509ae84b60537c4b09bc4881feefb6231c8632fd9744f957739",
+      "size": 3585
+    }
+  ],
+  "created_utc": "2026-08-25T06:51:48.406123+00:00",
+  "schema": "vitakart64.brand-assets.v1",
+  "sources": [
+    {
+      "path": "tools/vita_generate_brand_assets.sh",
+      "present": true,
+      "sha256": "13d1646e2ad6bdbdbc5ebeda539fc7af04582b5fbd0a2eb86d71fd0e56934e19",
+      "size": 664
+    },
+    {
+      "path": "tools/vita_generate_loading_art.py",
+      "present": true,
+      "sha256": "90f2af3b26f78e0bc06cb21bd68cffc8aedb41a57bb01114e533da5adde3c1b8",
+      "size": 10768
+    },
+    {
+      "path": "tools/vita_generate_livearea_art.py",
+      "present": true,
+      "sha256": "bab2596148d8742cb3a213f628cd5fd56ebf071cdc1e3e2c1d410fda8068599e",
+      "size": 2308
+    },
+    {
+      "path": "tools/vita_generate_icon_art.py",
+      "present": true,
+      "sha256": "1d04bdc533d356bab8983cbba6feafcf8859bddae5a5852d17a742b4237e1bd0",
+      "size": 2177
+    }
+  ]
+}
